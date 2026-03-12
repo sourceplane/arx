@@ -11,8 +11,12 @@ permissions:
   contents: write
   packages: write
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+
 jobs:
-  oci:
+  tinx-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +24,14 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: sourceplane/tinx-release-action@v1
         with:
-          registry: ghcr.io/sourceplane/lite-ci:v0.2.23
+          registry: ghcr.io/sourceplane/lite-ci:${{ env.IMAGE_TAG }}
           delegate-goreleaser: true

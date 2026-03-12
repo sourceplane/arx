@@ -27,26 +27,26 @@ Intent.yaml + Job Compositions + Schemas
 
 ### Option 1: Direct Binary Download (Recommended)
 
-**Latest Release (v0.2.23):**
+**Latest Release (v0.2.24):**
 
 ```bash
 # macOS (arm64 - Apple Silicon)
-curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.23/liteci_v0.2.23_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.24/liteci_v0.2.24_darwin_arm64.tar.gz | tar xz
 sudo mv entrypoint /usr/local/bin/liteci
 chmod +x /usr/local/bin/liteci
 
 # macOS (amd64 - Intel)
-curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.23/liteci_v0.2.23_darwin_amd64.tar.gz | tar xz
+curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.24/liteci_v0.2.24_darwin_amd64.tar.gz | tar xz
 sudo mv entrypoint /usr/local/bin/liteci
 chmod +x /usr/local/bin/liteci
 
 # Linux (amd64)
-curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.23/liteci_v0.2.23_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.24/liteci_v0.2.24_linux_amd64.tar.gz | tar xz
 sudo mv entrypoint /usr/local/bin/liteci
 chmod +x /usr/local/bin/liteci
 
 # Linux (arm64)
-curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.23/liteci_v0.2.23_linux_arm64.tar.gz | tar xz
+curl -L https://github.com/sourceplane/lite-ci/releases/download/v0.2.24/liteci_v0.2.24_linux_arm64.tar.gz | tar xz
 sudo mv entrypoint /usr/local/bin/liteci
 chmod +x /usr/local/bin/liteci
 ```
@@ -70,23 +70,23 @@ sudo mv liteci /usr/local/bin/
 
 ```bash
 # Docker
-docker run ghcr.io/sourceplane/lite-ci:v0.2.23 plan -i intent.yaml
+docker run ghcr.io/sourceplane/lite-ci:v0.2.24 plan -i intent.yaml
 
 # Podman (recommended for CI/CD)
-podman run ghcr.io/sourceplane/lite-ci:v0.2.23 plan -i intent.yaml
+podman run ghcr.io/sourceplane/lite-ci:v0.2.24 plan -i intent.yaml
 
 # Kubernetes
-kubectl run lite-ci --image=ghcr.io/sourceplane/lite-ci:v0.2.23
+kubectl run lite-ci --image=ghcr.io/sourceplane/lite-ci:v0.2.24
 ```
 
 ### Option 4: Using ORAS (OCI Registry As Storage)
 
 ```bash
 # Pull the provider artifact
-oras pull ghcr.io/sourceplane/lite-ci:v0.2.23
+oras pull ghcr.io/sourceplane/lite-ci:v0.2.24
 
 # Extract binaries
-tar -xzf liteci_v0.2.23_linux_amd64_oci.tar.gz
+tar -xzf liteci_v0.2.24_linux_amd64_oci.tar.gz
 ./entrypoint plan -i intent.yaml
 ```
 
@@ -195,7 +195,7 @@ Output: Fully resolved execution DAG in `plan.json`
 ```bash
 docker run \
   -v $(pwd):/workspace \
-  ghcr.io/sourceplane/lite-ci:v0.2.23 \
+  ghcr.io/sourceplane/lite-ci:v0.2.24 \
   plan \
   --intent /workspace/intent.yaml \
   --config-dir /workspace/assets/config/compositions \
@@ -207,7 +207,7 @@ docker run \
 ```bash
 podman run \
   -v $(pwd):/workspace \
-  ghcr.io/sourceplane/lite-ci:v0.2.23 \
+  ghcr.io/sourceplane/lite-ci:v0.2.24 \
   plan \
   --intent /workspace/intent.yaml \
   --config-dir /workspace/assets/config/compositions
@@ -217,7 +217,7 @@ podman run \
 
 ```bash
 kubectl run lite-ci-planner \
-  --image=ghcr.io/sourceplane/lite-ci:v0.2.23 \
+  --image=ghcr.io/sourceplane/lite-ci:v0.2.24 \
   --rm -it \
   -- plan \
   --intent intent.yaml \
@@ -228,7 +228,7 @@ kubectl run lite-ci-planner \
 
 ```yaml
 - name: Generate CI Plan
-  uses: docker://ghcr.io/sourceplane/lite-ci:v0.2.23
+  uses: docker://ghcr.io/sourceplane/lite-ci:v0.2.24
   with:
     args: |
       plan \

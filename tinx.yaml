@@ -3,7 +3,7 @@ kind: Provider
 metadata:
   namespace: sourceplane
   name: lite-ci
-  version: v0.2.23
+  version: v0.2.24
   description: Provider-native CI planning engine that compiles intent into deterministic execution plans
 spec:
   runtime: binary
