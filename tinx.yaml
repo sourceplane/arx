@@ -1,0 +1,35 @@
+apiVersion: tinx.io/v1
+kind: Provider
+metadata:
+  namespace: sourceplane
+  name: lite-ci
+  version: v0.1.0
+  description: Provider-native CI planning engine that compiles intent into deterministic execution plans
+spec:
+  runtime: binary
+  entrypoint: entrypoint
+  platforms:
+    - os: darwin
+      arch: amd64
+      binary: bin/darwin/amd64/entrypoint
+    - os: darwin
+      arch: arm64
+      binary: bin/darwin/arm64/entrypoint
+    - os: linux
+      arch: amd64
+      binary: bin/linux/amd64/entrypoint
+    - os: linux
+      arch: arm64
+      binary: bin/linux/arm64/entrypoint
+  capabilities:
+    plan:
+      description: Generate an execution plan from an intent specification
+    validate:
+      description: Validate intent and component definitions
+    debug:
+      description: Trace intent processing and expansion stages
+    run:
+      description: Execute the provider runtime using generated plans
+  layers:
+    assets:
+      root: assets

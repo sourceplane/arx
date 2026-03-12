@@ -20,45 +20,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: sourceplane/tinx-release-action@v1
         with:
-          go-version: "1.22"
-
-      - name: Set up GoReleaser
-        run: |
-          curl -sSL https://github.com/goreleaser/goreleaser/releases/latest/download/goreleaser_Linux_x86_64.tar.gz | tar xz goreleaser
-          sudo mv goreleaser /usr/local/bin/
-
-      - name: Set up ORAS
-        run: |
-          curl -sSL https://github.com/oras-project/oras/releases/download/v1.1.0/oras_1.1.0_linux_amd64.tar.gz | tar xz oras
-          sudo mv oras /usr/local/bin/
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Package and publish OCI artifact
-        run: |
-          cd scripts/releaser
-          go run ./cmd/releaser \
-            --provider ../../thin.provider.yaml \
-            --build-with gorelaser \
-            --dist ../../dist \
-            --output ../../oci \
-            --ref ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify OCI artifact
-        run: |
-          echo "✅ OCI artifact published at ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
-          echo "Available layers in manifest:"
-          echo "  - core: provider config, schemas, assets"
-          echo "  - binaries: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64"
-          echo "  - examples: (optional)"
+          registry: ghcr.io/sourceplane/lite-ci:v0.3.0
+          delegate-goreleaser: true
