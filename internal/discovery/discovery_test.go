@@ -5,8 +5,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
-
-	"github.com/sourceplane/gluon/internal/model"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -142,99 +140,160 @@ func TestFindIntentFile_PrefersYamlOverYml(t *testing.T) {
 	}
 }
 
-func TestDetectComponentContext_ExactMatch(t *testing.T) {
-	components := []model.Component{
-		{Name: "api", Path: "services/api"},
-	}
+const sampleComponentYAML = `apiVersion: sourceplane.io/v1
+kind: Component
 
-	name, err := DetectComponentContext("/repo/services/api", "/repo", components)
+metadata:
+  name: web-app
+
+spec:
+  type: helm
+`
+
+func TestFindComponentFile_InCurrentDir(t *testing.T) {
+	root := t.TempDir()
+	initGitRepo(t, root)
+	writeFile(t, filepath.Join(root, "component.yaml"), sampleComponentYAML)
+
+	name, filePath, err := FindComponentFile(root)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if name != "api" {
-		t.Errorf("expected 'api', got %q", name)
+	if name != "web-app" {
+		t.Errorf("expected 'web-app', got %q", name)
+	}
+	if filepath.Base(filePath) != "component.yaml" {
+		t.Errorf("expected component.yaml path, got %s", filePath)
 	}
 }
 
-func TestDetectComponentContext_SubdirMatch(t *testing.T) {
-	components := []model.Component{
-		{Name: "api", Path: "services/api"},
+func TestFindComponentFile_WalksUp(t *testing.T) {
+	root := t.TempDir()
+	initGitRepo(t, root)
+
+	compDir := filepath.Join(root, "services", "api")
+	writeFile(t, filepath.Join(compDir, "component.yaml"), sampleComponentYAML)
+
+	srcDir := filepath.Join(compDir, "src", "handlers")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
 	}
 
-	name, err := DetectComponentContext("/repo/services/api/src/handlers", "/repo", components)
+	name, _, err := FindComponentFile(srcDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if name != "api" {
-		t.Errorf("expected 'api', got %q", name)
+	if name != "web-app" {
+		t.Errorf("expected 'web-app', got %q", name)
 	}
 }
 
-func TestDetectComponentContext_LongestPrefix(t *testing.T) {
-	components := []model.Component{
-		{Name: "services", Path: "services"},
-		{Name: "api", Path: "services/api"},
+func TestFindComponentFile_NotFound(t *testing.T) {
+	root := t.TempDir()
+	initGitRepo(t, root)
+
+	subdir := filepath.Join(root, "services", "api")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatal(err)
 	}
 
-	name, err := DetectComponentContext("/repo/services/api/src", "/repo", components)
+	name, filePath, err := FindComponentFile(subdir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("expected nil error when no component.yaml found, got: %v", err)
 	}
-	if name != "api" {
-		t.Errorf("expected 'api' (longest prefix), got %q", name)
+	if name != "" {
+		t.Errorf("expected empty name, got %q", name)
+	}
+	if filePath != "" {
+		t.Errorf("expected empty path, got %q", filePath)
 	}
 }
 
-func TestDetectComponentContext_SkipsDotSlash(t *testing.T) {
-	components := []model.Component{
-		{Name: "root-comp", Path: "./"},
-		{Name: "api", Path: "services/api"},
+func TestFindComponentFile_StopsAtGitRoot(t *testing.T) {
+	// component.yaml lives above the git root — should NOT be found
+	outer := t.TempDir()
+	writeFile(t, filepath.Join(outer, "component.yaml"), sampleComponentYAML)
+
+	gitRoot := filepath.Join(outer, "repo")
+	if err := os.MkdirAll(gitRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, gitRoot)
+
+	subdir := filepath.Join(gitRoot, "src")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatal(err)
 	}
 
-	name, err := DetectComponentContext("/repo/other", "/repo", components)
+	name, _, err := FindComponentFile(subdir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if name != "" {
-		t.Errorf("expected empty (root-comp should be skipped), got %q", name)
+		t.Errorf("expected empty name (component.yaml is above git root), got %q", name)
 	}
 }
 
-func TestDetectComponentContext_NoMatch(t *testing.T) {
-	components := []model.Component{
-		{Name: "api", Path: "services/api"},
-		{Name: "web", Path: "services/web"},
-	}
+func TestFindComponentFile_YmlVariant(t *testing.T) {
+	root := t.TempDir()
+	initGitRepo(t, root)
+	writeFile(t, filepath.Join(root, "component.yml"), sampleComponentYAML)
 
-	name, err := DetectComponentContext("/repo/infra/network", "/repo", components)
+	name, filePath, err := FindComponentFile(root)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if name != "" {
-		t.Errorf("expected empty string for no match, got %q", name)
+	if name != "web-app" {
+		t.Errorf("expected 'web-app', got %q", name)
+	}
+	if filepath.Base(filePath) != "component.yml" {
+		t.Errorf("expected component.yml, got %s", filePath)
 	}
 }
 
-func TestDetectComponentContext_CwdOutsideIntentDir(t *testing.T) {
-	components := []model.Component{
-		{Name: "api", Path: "services/api"},
+func TestExtractMetadataName(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "standard component.yaml",
+			input:    sampleComponentYAML,
+			expected: "web-app",
+		},
+		{
+			name: "quoted name",
+			input: `metadata:
+  name: "my-component"
+`,
+			expected: "my-component",
+		},
+		{
+			name: "single-quoted name",
+			input: `metadata:
+  name: 'another-comp'
+`,
+			expected: "another-comp",
+		},
+		{
+			name:     "no metadata section",
+			input:    "kind: Component\nspec:\n  type: helm\n",
+			expected: "",
+		},
+		{
+			name:     "empty content",
+			input:    "",
+			expected: "",
+		},
 	}
 
-	name, err := DetectComponentContext("/other/path", "/repo", components)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if name != "" {
-		t.Errorf("expected empty string for CWD outside intent dir, got %q", name)
-	}
-}
-
-func TestDetectComponentContext_EmptyComponents(t *testing.T) {
-	name, err := DetectComponentContext("/repo/services/api", "/repo", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if name != "" {
-		t.Errorf("expected empty string for no components, got %q", name)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := extractMetadataName(tc.input)
+			if got != tc.expected {
+				t.Errorf("expected %q, got %q", tc.expected, got)
+			}
+		})
 	}
 }
