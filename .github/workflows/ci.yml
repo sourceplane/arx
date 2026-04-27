@@ -37,10 +37,12 @@ jobs:
           output: oci
           dist: dist
           tag: ci
+          kiox-version: v0.4.3
 
       - name: Smoke test provider with kiox-action
         uses: sourceplane/kiox-action@v2.1.2
         with:
+          version: v0.4.3
           providers: |
             ${{ github.workspace }}/oci as gluon
           run: |
