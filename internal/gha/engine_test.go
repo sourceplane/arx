@@ -31,6 +31,19 @@ func TestParseKVFileSupportsHeredocAndBOM(t *testing.T) {
 	}
 }
 
+func TestDecodeCommandValuePreservesSTSTokenCharacters(t *testing.T) {
+	t.Parallel()
+
+	// AWS STS session tokens contain +, /, = which the GitHub Actions runner percent-encodes
+	// in ::set-env:: commands. These must survive the handoff layer intact.
+	raw := "::set-env name=AWS_SESSION_TOKEN::AQoXnyc1KWCugJh%2F%2FWfgJ2GHaEm4D%2FbVfJi3mEXAMPLEKEY%2FLhDs%2F3tCGz%3D%3D"
+	result := processWorkflowCommands(raw, nil)
+	want := "AQoXnyc1KWCugJh//WfgJ2GHaEm4D/bVfJi3mEXAMPLEKEY/LhDs/3tCGz=="
+	if got := result.Env["AWS_SESSION_TOKEN"]; got != want {
+		t.Fatalf("AWS_SESSION_TOKEN = %q, want %q", got, want)
+	}
+}
+
 func TestProcessWorkflowCommandsParsesLegacyCommands(t *testing.T) {
 	t.Parallel()
 

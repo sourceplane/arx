@@ -1087,7 +1087,7 @@ func parseWorkflowCommand(line string) (string, map[string]string, string, bool)
 }
 
 func decodeCommandValue(value string) string {
-	replacer := strings.NewReplacer("%25", "%", "%0D", "\r", "%0d", "\r", "%0A", "\n", "%0a", "\n", "%3A", ":", "%3a", ":", "%2C", ",", "%2c", ",")
+	replacer := strings.NewReplacer("%25", "%", "%0D", "\r", "%0d", "\r", "%0A", "\n", "%0a", "\n", "%3A", ":", "%3a", ":", "%2C", ",", "%2c", ",", "%2B", "+", "%2b", "+", "%2F", "/", "%2f", "/", "%3D", "=", "%3d", "=", "%20", " ")
 	return replacer.Replace(value)
 }
 
