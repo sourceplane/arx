@@ -233,7 +233,7 @@ func generatePlan() error {
 		if err != nil {
 			return fmt.Errorf("failed to detect changed files: %w", err)
 		}
-		changedComps := collectChangedComponents(normalized, instances, changedSet, intentFile)
+		changedComps := collectChangedComponents(normalized, instances, changedSet, intentFile, changeOptions)
 
 		// Use dependency resolver to include all required dependencies
 		resolver := expand.NewDependencyResolver(normalized)
@@ -623,7 +623,7 @@ func listComponents(args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to detect changed files: %w", err)
 		}
-		changedComps = collectChangedComponents(normalized, instancesFromMergedComponents(components), changedSet, intentFile)
+		changedComps = collectChangedComponents(normalized, instancesFromMergedComponents(components), changedSet, intentFile, changeOptions)
 
 		if len(changedComps) == 0 {
 			color := ui.ColorEnabledForWriter(os.Stdout)
@@ -892,6 +892,66 @@ func valueOrNotSet(s string) string {
 	return s
 }
 
+func semanticIntentDiff(options git.ChangeOptions, intentPath string) git.IntentDiffResult {
+	normalizedPath := strings.TrimPrefix(normalizeFilePath(intentPath), "./")
+	if normalizedPath == "" {
+		normalizedPath = "intent.yaml"
+	}
+
+	base := options.Base
+	head := options.Head
+	if base == "" {
+		base = "main"
+	}
+	if head == "" {
+		head = "HEAD"
+	}
+
+	// When --files is provided, we cannot retrieve git content for semantic diff
+	if len(options.Files) > 0 {
+		return git.IntentDiffResult{
+			Mode:   git.IntentDiffGlobal,
+			Reason: "cannot perform semantic diff with --files (no git refs available)",
+		}
+	}
+
+	baseYAML, err := git.GetFileAtRef(base, normalizedPath)
+	if err != nil {
+		return git.IntentDiffResult{
+			Mode:   git.IntentDiffGlobal,
+			Reason: fmt.Sprintf("cannot read base intent at %s:%s: %v", base, normalizedPath, err),
+		}
+	}
+
+	headYAML, err := git.GetFileAtRef(head, normalizedPath)
+	if err != nil {
+		return git.IntentDiffResult{
+			Mode:   git.IntentDiffGlobal,
+			Reason: fmt.Sprintf("cannot read head intent at %s:%s: %v", head, normalizedPath, err),
+		}
+	}
+
+	return git.DiffIntent(baseYAML, headYAML)
+}
+
+func printIntentDiffExplanation(result git.IntentDiffResult) {
+	color := ui.ColorEnabledForWriter(os.Stderr)
+	fmt.Fprintf(os.Stderr, "\n%s intent.yaml semantic diff\n", ui.Bold(color, "explain:"))
+	fmt.Fprintf(os.Stderr, "  intent changed: yes\n")
+	fmt.Fprintf(os.Stderr, "  diff mode: %s\n", result.Mode)
+	fmt.Fprintf(os.Stderr, "  reason: %s\n", result.Reason)
+	if len(result.Added) > 0 {
+		fmt.Fprintf(os.Stderr, "  added: %s\n", strings.Join(result.Added, ", "))
+	}
+	if len(result.Modified) > 0 {
+		fmt.Fprintf(os.Stderr, "  modified: %s\n", strings.Join(result.Modified, ", "))
+	}
+	if len(result.Removed) > 0 {
+		fmt.Fprintf(os.Stderr, "  removed: %s\n", strings.Join(result.Removed, ", "))
+	}
+	fmt.Fprintln(os.Stderr)
+}
+
 func isPathChanged(changedFiles map[string]struct{}, path string) bool {
 	if path == "" || path == "./" {
 		return len(changedFiles) > 0
@@ -915,6 +975,7 @@ func collectChangedComponents(
 	instances map[string][]*model.ComponentInstance,
 	changedFiles map[string]struct{},
 	intentPath string,
+	changeOptions git.ChangeOptions,
 ) map[string]bool {
 	changedComponents := make(map[string]bool)
 	if normalized == nil {
@@ -922,10 +983,29 @@ func collectChangedComponents(
 	}
 
 	if isIntentPathChanged(changedFiles, intentPath) {
-		for _, comp := range normalized.Components {
-			changedComponents[comp.Name] = true
+		diffResult := semanticIntentDiff(changeOptions, intentPath)
+		if explainChanged {
+			printIntentDiffExplanation(diffResult)
 		}
-		return changedComponents
+		switch diffResult.Mode {
+		case git.IntentDiffGlobal:
+			for _, comp := range normalized.Components {
+				changedComponents[comp.Name] = true
+			}
+			return changedComponents
+		case git.IntentDiffComponents:
+			for _, name := range diffResult.Added {
+				changedComponents[name] = true
+			}
+			for _, name := range diffResult.Modified {
+				changedComponents[name] = true
+			}
+			for _, name := range diffResult.Removed {
+				changedComponents[name] = true
+			}
+		case git.IntentDiffNone:
+			// formatting/comment-only change — no components from intent
+		}
 	}
 
 	intentDir := filepathDir(intentPath)

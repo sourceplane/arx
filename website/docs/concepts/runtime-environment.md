@@ -229,3 +229,7 @@ HEREDOC
 ```
 
 Variables written to `$ORUN_ENV` are available to all subsequent steps in the same job but not to other jobs.
+
+### Value preservation guarantees
+
+`ORUN_ENV` / `GITHUB_ENV` preserves environment variable values exactly as written. Characters like `+`, `/`, `=`, `:`, `;`, and other special characters common in base64-encoded tokens (e.g. AWS session tokens) are never transformed, escaped, or split. This ensures that credentials written by GitHub Actions like `aws-actions/configure-aws-credentials` are propagated intact to subsequent steps such as `terraform init`.

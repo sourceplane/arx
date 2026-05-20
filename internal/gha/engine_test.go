@@ -2,6 +2,7 @@ package gha
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,8 +27,8 @@ func TestParseKVFileSupportsHeredocAndBOM(t *testing.T) {
 	if got := values["FOO"]; got != "bar" {
 		t.Fatalf("values[FOO] = %q, want bar", got)
 	}
-	if got := values["MULTI"]; got != "line1\nline2\n" {
-		t.Fatalf("values[MULTI] = %q, want %q", got, "line1\nline2\n")
+	if got := values["MULTI"]; got != "line1\nline2" {
+		t.Fatalf("values[MULTI] = %q, want %q", got, "line1\nline2")
 	}
 }
 
@@ -273,5 +274,149 @@ runs:
 	}
 	if finalOutput != "" {
 		t.Fatalf("engine.FinalizeJob() output = %q, want empty", finalOutput)
+	}
+}
+
+func TestParseKVFilePreservesSpecialCharactersInHeredoc(t *testing.T) {
+	t.Parallel()
+
+	fakeToken := "IQoJb3JpZ2luX2VjEBYaCXVzLWVhc3QtMSJI+MEY/CIQC5p+Fc/bVfJi3mEXAMPLEKEY/LhDs/3tCGz=="
+	content := fmt.Sprintf("AWS_SESSION_TOKEN<<ghadelimiter_abc123\n%s\nghadelimiter_abc123\n", fakeToken)
+
+	filePath := filepath.Join(t.TempDir(), "env")
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	values, err := parseKVFile(filePath)
+	if err != nil {
+		t.Fatalf("parseKVFile() error = %v", err)
+	}
+	if got := values["AWS_SESSION_TOKEN"]; got != fakeToken {
+		t.Fatalf("AWS_SESSION_TOKEN mismatch:\n  got:  %q\n  want: %q", got, fakeToken)
+	}
+}
+
+func TestParseKVFileSimpleEqualsPreservesSpecialChars(t *testing.T) {
+	t.Parallel()
+
+	fakeToken := "IQoJb3Jp+Z2luX2Vj/EBYaCXVz+LWVhc3QtMSJI/MEYCIQC5p+Fc/bVfJi3m=="
+	content := fmt.Sprintf("AWS_SESSION_TOKEN=%s\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n", fakeToken)
+
+	filePath := filepath.Join(t.TempDir(), "env")
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	values, err := parseKVFile(filePath)
+	if err != nil {
+		t.Fatalf("parseKVFile() error = %v", err)
+	}
+	if got := values["AWS_SESSION_TOKEN"]; got != fakeToken {
+		t.Fatalf("AWS_SESSION_TOKEN mismatch:\n  got:  %q\n  want: %q", got, fakeToken)
+	}
+	if got := values["AWS_ACCESS_KEY_ID"]; got != "AKIAIOSFODNN7EXAMPLE" {
+		t.Fatalf("AWS_ACCESS_KEY_ID = %q, want AKIAIOSFODNN7EXAMPLE", got)
+	}
+}
+
+func TestEngineStepToStepEnvPreservesAWSSessionToken(t *testing.T) {
+	t.Parallel()
+
+	fakeToken := "IQoJb3JpZ2luX2VjEBYaCXVzLWVhc3QtMSJI+MEY/CIQC5p+Fc/bVfJi3mEXAMPLEKEY/LhDs/3tCGz=="
+
+	workspaceDir := t.TempDir()
+	engine := NewEngine(Options{
+		CacheDir:     filepath.Join(workspaceDir, ".cache", "actions"),
+		ToolCacheDir: filepath.Join(workspaceDir, ".cache", "tools"),
+	})
+	execCtx := ExecContext{
+		Context:      context.Background(),
+		WorkspaceDir: workspaceDir,
+		WorkDir:      workspaceDir,
+		BaseEnv: map[string]string{
+			"PATH": os.Getenv("PATH"),
+			"HOME": os.Getenv("HOME"),
+		},
+	}
+	if err := engine.Prepare(execCtx); err != nil {
+		t.Fatalf("engine.Prepare() error = %v", err)
+	}
+
+	job := model.PlanJob{ID: "aws-env-job"}
+
+	// Simulate configure-aws-credentials writing via heredoc to GITHUB_ENV
+	writeScript := `cat >> "$GITHUB_ENV" <<'ORUN_HEREDOC_END'
+AWS_SESSION_TOKEN<<ghadelimiter_test
+` + fakeToken + `
+ghadelimiter_test
+ORUN_HEREDOC_END`
+
+	if _, err := engine.RunStep(execCtx, job, model.PlanStep{
+		ID:    "set-creds",
+		Run:   writeScript,
+		Shell: "bash",
+	}); err != nil {
+		t.Fatalf("set-creds step error = %v", err)
+	}
+
+	// Read the env var and verify it's exactly the token
+	output, err := engine.RunStep(execCtx, job, model.PlanStep{
+		ID:    "verify-token",
+		Run:   `printf '%s' "$AWS_SESSION_TOKEN"`,
+		Shell: "bash",
+	})
+	if err != nil {
+		t.Fatalf("verify-token step error = %v", err)
+	}
+	if output != fakeToken {
+		t.Fatalf("AWS_SESSION_TOKEN corrupted between steps:\n  got:  %q\n  want: %q", output, fakeToken)
+	}
+}
+
+func TestEngineEnvIsolationBetweenJobs(t *testing.T) {
+	t.Parallel()
+
+	workspaceDir := t.TempDir()
+	engine := NewEngine(Options{
+		CacheDir:     filepath.Join(workspaceDir, ".cache", "actions"),
+		ToolCacheDir: filepath.Join(workspaceDir, ".cache", "tools"),
+	})
+	execCtx := ExecContext{
+		Context:      context.Background(),
+		WorkspaceDir: workspaceDir,
+		WorkDir:      workspaceDir,
+		BaseEnv: map[string]string{
+			"PATH": os.Getenv("PATH"),
+			"HOME": os.Getenv("HOME"),
+		},
+	}
+	if err := engine.Prepare(execCtx); err != nil {
+		t.Fatalf("engine.Prepare() error = %v", err)
+	}
+
+	jobA := model.PlanJob{ID: "job-a"}
+	jobB := model.PlanJob{ID: "job-b"}
+
+	// Job A sets an env var
+	if _, err := engine.RunStep(execCtx, jobA, model.PlanStep{
+		ID:    "set",
+		Run:   `echo "PRIVATE_VAR=from_job_a" >> "$GITHUB_ENV"`,
+		Shell: "bash",
+	}); err != nil {
+		t.Fatalf("job-a set error = %v", err)
+	}
+
+	// Job B should not see it
+	output, err := engine.RunStep(execCtx, jobB, model.PlanStep{
+		ID:    "read",
+		Run:   `printf '%s' "${PRIVATE_VAR:-unset}"`,
+		Shell: "bash",
+	})
+	if err != nil {
+		t.Fatalf("job-b read error = %v", err)
+	}
+	if output != "unset" {
+		t.Fatalf("env leaked between jobs: PRIVATE_VAR = %q in job-b", output)
 	}
 }
