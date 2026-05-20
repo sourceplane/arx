@@ -102,6 +102,32 @@ orun run --changed --explain
 
 Use change detection to reduce noise during review, not to hide full-environment validation when you need a canonical plan for release.
 
+## Intent-aware change scoping
+
+When `intent.yaml` itself is in the changed file set, `orun` performs a **semantic diff** to determine whether the change affects all components or only specific inline components:
+
+| What changed in intent.yaml | Effect |
+| --- | --- |
+| Top-level `env`, `environments`, `groups`, `discovery`, `compositions`, `automation`, or `execution` | All components marked changed (safe fallback) |
+| Only entries under top-level `components: []` | Only the added/modified/removed inline component names are marked changed |
+| Formatting, comments, or component reordering without content change | No components marked changed from intent |
+| Both `components` and another section | All components marked changed |
+
+This means a pull request that only adds or modifies a single inline component definition in `intent.yaml` will produce a scoped plan containing just that component — instead of rebuilding the entire platform graph.
+
+The `--explain` flag shows the intent semantic diff reasoning:
+
+```bash
+orun plan --changed --explain
+# explain: intent.yaml semantic diff
+#   intent changed: yes
+#   diff mode: components
+#   reason: only inline components changed
+#   added: bootstrap
+```
+
+If the base or head intent cannot be parsed (e.g. the file is new), `orun` falls back to marking all components changed and surfaces a warning in `--explain` output.
+
 ## Trigger-driven change detection
 
 When using [trigger bindings](./trigger-bindings.md) with `plan.scope: changed`, the trigger system automatically enables change detection with the base/head refs resolved from the event payload:

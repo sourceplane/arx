@@ -154,7 +154,11 @@ func parseKVFile(filePath string) (map[string]string, error) {
 			if !matched {
 				return nil, fmt.Errorf("matching delimiter %q not found", delimiter)
 			}
-			values[key] = builder.String()
+			raw := builder.String()
+			if strings.HasSuffix(raw, "\n") {
+				raw = raw[:len(raw)-1]
+			}
+			values[key] = raw
 			continue
 		}
 
