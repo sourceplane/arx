@@ -98,8 +98,9 @@ func (c *Client) Upload(ctx context.Context, shard *runbundle.Shard) (*artifacts
 // UploadShard is a high-level orchestrator that packages a shard directory,
 // uploads it as a named artifact, and verifies the artifact exists post-upload.
 //
-// Inside GitHub Actions, it uses the @actions/artifact Node.js helper.
-// Outside GitHub Actions, it uses the GitHub REST API to create an artifact.
+// When ACTIONS_RUNTIME_TOKEN is available (native GHA runtime), uses the
+// @actions/artifact Node.js helper for direct upload.
+// Otherwise, uses the GitHub REST API with GITHUB_TOKEN for artifact upload.
 //
 // Returns the upload result with artifact ID, name, and size.
 func (c *Client) UploadShard(ctx context.Context, shard *runbundle.Shard) (*artifactstore.UploadResult, error) {
@@ -112,8 +113,10 @@ func (c *Client) UploadShard(ctx context.Context, shard *runbundle.Shard) (*arti
 
 	name := runbundle.ArtifactName(shard.ExecID, shard.Role, shard.Suffix, shard.Status)
 
-	// Try GHA upload first (inside Actions runner)
-	if IsGitHubActions() {
+	// Check if runtime token is available for GHA upload.
+	// GITHUB_ACTIONS=true is set in the plan job, but ACTIONS_RUNTIME_TOKEN
+	// is only available during actual job step runtime, not arbitrary shell commands.
+	if IsGitHubActions() && os.Getenv("ACTIONS_RUNTIME_TOKEN") != "" {
 		result, err := c.UploadWithRetry(ctx, shard)
 		if err != nil {
 			return nil, fmt.Errorf("gha upload: %w", err)
@@ -127,7 +130,7 @@ func (c *Client) UploadShard(ctx context.Context, shard *runbundle.Shard) (*arti
 		return result, nil
 	}
 
-	// Outside GHA: use REST API
+	// Use REST API (no runtime token or outside GHA)
 	return c.uploadViaAPI(ctx, shard, name)
 }
 
