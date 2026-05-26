@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "dependencies": {
-    "@actions/artifact": "^2.2.0"
-  }
-}

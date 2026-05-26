@@ -191,5 +191,4 @@ func init() {
 	registerPublishCommand(rootCmd)
 	registerFetchCommand(rootCmd)
 	registerIntentCommand(rootCmd)
-	registerGithubCommand(rootCmd)
 }
