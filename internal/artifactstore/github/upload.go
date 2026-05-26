@@ -102,7 +102,8 @@ func (c *Client) Upload(ctx context.Context, shard *runbundle.Shard) (*artifacts
 //
 // When ACTIONS_RUNTIME_TOKEN is available (native GHA runtime), uses the
 // @actions/artifact Node.js helper for direct upload.
-// Otherwise, uses the GitHub REST API with GITHUB_TOKEN for artifact upload.
+// Otherwise, attempts the Node.js helper anyway (it may discover tokens via
+// other mechanisms) and returns a descriptive error if upload is not possible.
 //
 // Returns the upload result with artifact ID, name, and size.
 func (c *Client) UploadShard(ctx context.Context, shard *runbundle.Shard) (*artifactstore.UploadResult, error) {
@@ -115,9 +116,8 @@ func (c *Client) UploadShard(ctx context.Context, shard *runbundle.Shard) (*arti
 
 	name := runbundle.ArtifactName(shard.ExecID, shard.Role, shard.Suffix, shard.Status)
 
-	// Check if runtime token is available for GHA upload.
-	// GITHUB_ACTIONS=true is set in the plan job, but ACTIONS_RUNTIME_TOKEN
-	// is only available during actual job step runtime, not arbitrary shell commands.
+	// When inside GHA with runtime token available, use the Node.js helper
+	// which talks directly to the artifact service.
 	if IsGitHubActions() && os.Getenv("ACTIONS_RUNTIME_TOKEN") != "" {
 		result, err := c.UploadWithRetry(ctx, shard)
 		if err != nil {
@@ -132,7 +132,7 @@ func (c *Client) UploadShard(ctx context.Context, shard *runbundle.Shard) (*arti
 		return result, nil
 	}
 
-	// Use REST API (no runtime token or outside GHA)
+	// Fallback: try the Node.js helper anyway or provide clear guidance
 	return c.uploadViaAPI(ctx, shard, name)
 }
 
@@ -178,90 +178,25 @@ func (c *Client) UploadWithRetry(ctx context.Context, shard *runbundle.Shard) (*
 	return nil, fmt.Errorf("upload failed after %d retries: %w", cfg.MaxRetries, lastErr)
 }
 
-// uploadViaAPI uploads a shard directory as a GitHub artifact using the
-// GitHub REST API. This works with a regular GITHUB_TOKEN/GH_TOKEN and
-// does not require running inside a GitHub Actions runner.
-//
-// The endpoint differs from the GHA runtime upload:
-//   - We create a signed upload URL via the GitHub artifacts API
-//   - Upload the zip content to that URL
-//   - Finalize the artifact
+// uploadViaAPI attempts to upload a shard using the @actions/artifact Node.js
+// helper without requiring ACTIONS_RUNTIME_TOKEN to be pre-verified. If the
+// required runtime environment variables are not available, it returns a
+// descriptive error recommending the use of actions/upload-artifact@v4.
 func (c *Client) uploadViaAPI(ctx context.Context, shard *runbundle.Shard, name string) (*artifactstore.UploadResult, error) {
-	// Package the shard directory into a zip
-	zipData, _, err := PackageShardAsZip(shard.Dir)
-	if err != nil {
-		return nil, fmt.Errorf("package shard: %w", err)
+	if !IsGitHubActions() {
+		return nil, fmt.Errorf("artifact upload requires GitHub Actions; use actions/upload-artifact@v4 in your workflow")
 	}
 
-	// Determine the run ID from the exec ID or source
-	runID, err := resolveRunIDFromShard(shard)
-	if err != nil {
-		return nil, fmt.Errorf("resolve run id from shard: %w", err)
+	// Try the Node.js helper regardless — it handles its own token discovery
+	// from ACTIONS_RUNTIME_TOKEN or ACTIONS_RESULTS_URL.
+	result, err := c.Upload(ctx, shard)
+	if err == nil {
+		return result, nil
 	}
 
-	// Step 1: Create the artifact on GitHub and get an upload URL
-	// POST /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts
-	createURL := c.apiURL(fmt.Sprintf("/repos/%s/actions/runs/%d/artifacts", c.repo, runID))
-
-	createPayload := struct {
-		Name         string `json:"name"`
-		Size         int64  `json:"size"`
-		RetentionDays int   `json:"retention_days"`
-	}{
-		Name:         name,
-		Size:         int64(len(zipData)),
-		RetentionDays: retentionDaysFromEnv(),
-	}
-
-	payloadBytes, _ := json.Marshal(createPayload)
-	req, err := c.newPostRequest(ctx, createURL, bytes.NewReader(payloadBytes))
-	if err != nil {
-		return nil, fmt.Errorf("create artifact request: %w", err)
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, fmt.Errorf("create artifact: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var createResult struct {
-		ID         int64  `json:"id"`
-		Name       string `json:"name"`
-		Size       int64  `json:"size"`
-		UploadURL  string `json:"upload_url"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&createResult); err != nil {
-		return nil, fmt.Errorf("decode create response: %w", err)
-	}
-
-	// Step 2: Upload the zip content to the signed upload URL
-	putReq, err := c.newPutRequest(ctx, createResult.UploadURL, "application/zip", bytes.NewReader(zipData))
-	if err != nil {
-		return nil, fmt.Errorf("create upload request: %w", err)
-	}
-
-	uploadResp, err := c.doRequest(putReq)
-	if err != nil {
-		return nil, fmt.Errorf("upload artifact content: %w", err)
-	}
-	defer uploadResp.Body.Close()
-
-	// Step 3: Verify the artifact is accessible
-	if err := c.VerifyArtifactExists(ctx, runID, name); err != nil {
-		return &artifactstore.UploadResult{
-			ID:   fmt.Sprintf("%d", createResult.ID),
-			Name: name,
-			Size: int64(len(zipData)),
-		}, fmt.Errorf("upload succeeded but verification failed: %w", err)
-	}
-
-	return &artifactstore.UploadResult{
-		ID:     fmt.Sprintf("%d", createResult.ID),
-		Name:   name,
-		Size:   int64(len(zipData)),
-		Digest: "", // GitHub doesn't return a digest via the REST API
-	}, nil
+	return nil, fmt.Errorf(
+		"programmatic artifact upload unavailable (ACTIONS_RUNTIME_TOKEN not set); "+
+			"add an actions/upload-artifact@v4 step to your workflow to upload .orun/plans/: %w", err)
 }
 
 // PackageShardAsZip packages a shard directory into an in-memory zip archive.

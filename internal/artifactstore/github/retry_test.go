@@ -467,38 +467,7 @@ func TestUploadShard_RESTAPI(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	var createCalled bool
-	var uploadCalled bool
-
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "/artifacts") && r.Method == http.MethodPost:
-			createCalled = true
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":         99,
-				"name":       "orun.v1.gh-42-1-abc.job.uid.completed",
-				"size":       100,
-				"upload_url": server.URL + "/upload/99",
-			})
-		case strings.Contains(r.URL.Path, "/upload/99") && r.Method == http.MethodPut:
-			uploadCalled = true
-			w.WriteHeader(http.StatusNoContent)
-		case strings.Contains(r.URL.Path, "/artifacts") && r.Method == http.MethodGet:
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"artifacts": []map[string]interface{}{
-					{"id": 99, "name": "orun.v1.gh-42-1-abc.job.uid.completed", "size_in_bytes": 100},
-				},
-			})
-		default:
-			t.Logf("unexpected request: %s %s", r.Method, r.URL.Path)
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer server.Close()
-
 	client, err := NewClient(ctx, "sourceplane/orun",
-		WithBaseURL(server.URL),
 		WithToken("test-token"),
 		WithRetryConfig(RetryConfig{MaxRetries: 0}),
 	)
@@ -515,26 +484,14 @@ func TestUploadShard_RESTAPI(t *testing.T) {
 		Manifest: &runbundle.RunBundleShardManifest{},
 	}
 
-	oldTimeout := UploadPollTimeout
-	UploadPollTimeout = time.Second
-	defer func() { UploadPollTimeout = oldTimeout }()
-
-	result, err := client.UploadShard(ctx, shard)
-	if err != nil {
-		t.Fatalf("UploadShard failed: %v", err)
+	// When not in GitHub Actions, UploadShard should return a clear error
+	// directing users to use actions/upload-artifact@v4
+	_, err = client.UploadShard(ctx, shard)
+	if err == nil {
+		t.Fatal("expected error when not in GitHub Actions")
 	}
-
-	if !createCalled {
-		t.Error("artifact create endpoint was not called")
-	}
-	if !uploadCalled {
-		t.Error("artifact upload endpoint was not called")
-	}
-	if result.ID != "99" {
-		t.Errorf("result.ID = %q, want %q", result.ID, "99")
-	}
-	if !strings.Contains(result.Name, "orun.v1.gh-42-1-abc") {
-		t.Errorf("result.Name = %q, should contain exec ID", result.Name)
+	if !strings.Contains(err.Error(), "actions/upload-artifact@v4") {
+		t.Errorf("error should mention actions/upload-artifact@v4, got: %v", err)
 	}
 }
 

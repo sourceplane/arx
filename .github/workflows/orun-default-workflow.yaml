@@ -46,6 +46,13 @@ jobs:
             --intent examples/intent.yaml \
             --artifact github \
             --github-output
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orun-plan
+          path: .orun/plans/
+          if-no-files-found: error
+          retention-days: 14
 
   execute:
     name: "${{ matrix.component }}/${{ matrix.env }}"
@@ -75,10 +82,14 @@ jobs:
           node-version: '20'
       - name: Build orun from source
         run: go build -o /usr/local/bin/orun ./cmd/orun
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: orun-plan
+          path: .orun/plans/
       - name: run job steps
         run: |
-          orun run \
-            --plan plan.json \
+          orun run '${{ needs.plan.outputs.plan-checksum }}' \
             --runner github-actions \
             --remote-state \
             --job "${{ matrix.id }}" \

@@ -29,9 +29,9 @@ func TestIsGitHubActions(t *testing.T) {
 	}
 }
 
-// TestUploadShard_FallbackWhenRuntimeTokenMissing verifies UploadShard falls back
-// to REST API when GITHUB_ACTIONS=true but ACTIONS_RUNTIME_TOKEN is not set
-// (the case when running `orun plan` as a shell command in a plan job).
+// TestUploadShard_FallbackWhenRuntimeTokenMissing verifies UploadShard returns
+// a descriptive error when GITHUB_ACTIONS=true but ACTIONS_RUNTIME_TOKEN is
+// not set, guiding users to add actions/upload-artifact@v4 to their workflow.
 func TestUploadShard_FallbackWhenRuntimeTokenMissing(t *testing.T) {
 	// Set GITHUB_ACTIONS but NOT ACTIONS_RUNTIME_TOKEN
 	os.Setenv("GITHUB_ACTIONS", "true")
@@ -50,9 +50,6 @@ func TestUploadShard_FallbackWhenRuntimeTokenMissing(t *testing.T) {
 		t.Fatalf("write manifest: %v", err)
 	}
 
-	// UploadShard should fall back to REST API since ACTIONS_RUNTIME_TOKEN is missing.
-	// This will fail because there's no real API endpoint, but it shouldn't fail
-	// with "gha upload" or "runtime token" errors.
 	_, err = client.UploadShard(context.Background(), &runbundle.Shard{
 		Dir:    shardDir,
 		ExecID: "gh-123-1-abc",
@@ -61,15 +58,11 @@ func TestUploadShard_FallbackWhenRuntimeTokenMissing(t *testing.T) {
 		Status: "created",
 	})
 	if err == nil {
-		t.Fatal("expected error from fallback REST API call")
+		t.Fatal("expected error when ACTIONS_RUNTIME_TOKEN is missing")
 	}
-	// Should NOT contain "gha upload" (which would indicate we tried GHA helper)
-	if strings.Contains(err.Error(), "gha upload") {
-		t.Errorf("unexpectedly tried GHA helper: %v", err)
-	}
-	// Should NOT contain "runtime token" (which would indicate wrong path)
-	if strings.Contains(err.Error(), "ACTIONS_RUNTIME_TOKEN") {
-		t.Errorf("unexpectedly failed on runtime token: %v", err)
+	// Should contain guidance about using actions/upload-artifact
+	if !strings.Contains(err.Error(), "actions/upload-artifact@v4") {
+		t.Errorf("error should mention actions/upload-artifact@v4, got: %v", err)
 	}
 }
 
