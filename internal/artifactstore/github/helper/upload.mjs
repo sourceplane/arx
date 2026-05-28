@@ -1,5 +1,14 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+
+// Redirect @actions/core logging to stderr so stdout is pure JSON.
+// @actions/core uses process.stdout.write for ::commands and info().
+const origStdoutWrite = process.stdout.write.bind(process.stdout);
+process.stdout.write = function (chunk, encoding, callback) {
+  // Redirect all stdout writes to stderr except our final JSON output
+  return process.stderr.write(chunk, encoding, callback);
+};
+
 const { DefaultArtifactClient } = require('@actions/artifact');
 import { readdirSync, statSync } from 'fs';
 import { join } from 'path';
@@ -34,7 +43,9 @@ async function main() {
   const files = getAllFiles(shardDir);
   const result = await client.uploadArtifact(artifactName, files, shardDir, options);
 
-  console.log(JSON.stringify({
+  // Restore stdout for the final JSON result
+  process.stdout.write = origStdoutWrite;
+  process.stdout.write(JSON.stringify({
     id: String(result.id),
     name: artifactName,
     size: result.size,
