@@ -73,3 +73,14 @@
 ||- Scope boundary: PR #142 only. Code under review: `cmd/orun/command_github.go` (`--orun-dir` normalization, `github status` flag registration) and `website/docs/cli/orun-github.md`. Scope-risk files: `.kiro/specs/orun-tui-cockpit/**`, `orun-tui-cockpit.md`, `agents/orchestrator.md`, historical `ai/tasks/task-013x/014x` prompts, `ai/waiting_for_input.md`, `examples/apps/api-edge/component.yaml`.
 ||- Acceptance verdict: CLI code change is correct and locally tested (all 17 TestGithub* + full ./cmd/orun/..., ./internal/artifactstore/github/..., ./internal/runbundle/... pass; build clean). FAIL is driven by (1) Orun Plan CI queued, (2) `trigger: pr-142-dummy-change` dummy label in component.yaml, (3) 3,760-line unrelated scope (TUI cockpit spec pack, orchestrator doc, historical prompts, stale waiting_for_input), (4) meaningless PR title with no implementer report.
 ||- Durable outcome: Verification report recorded on `main`; PR #142 stays OPEN; orchestrator must scope a narrowed CLI-only follow-up plus separate spec/docs/history PRs before any new implementation task starts.
+
+## Task 0143
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0143.md`
+|- Status: scoped and ready to begin (2026-05-29)
+|- Objective: repair PR #142 into a coherent GitHub CLI UX fix PR by preserving the valid `--orun-dir` normalization and `orun github status` resolver flags, removing dummy/unrelated scope, fixing PR title/body, committing an implementer report, and re-running CI.
+|- Scope boundary: PR #142 cleanup only. In scope: `cmd/orun/command_github.go`, focused tests if needed, `website/docs/cli/orun-github.md`, optional direct UX-review doc, and `ai/reports/task-0143-implementer.md`. Out of scope: TUI cockpit spec pack, `agents/orchestrator.md`, historical task prompts, stale `ai/waiting_for_input.md`, dummy component trigger, and new GitHub Artifact features.
+|- Acceptance: PR diff is narrow; `trigger: pr-142-dummy-change` and unrelated files are absent; focused Go tests/build pass; PR title/body are meaningful; implementer report names the real PR; required CI is re-run and not queued/unknown before reporting complete.
+|- Expected outcome: PR #142 is repaired and ready for a Task 0143 verifier pass, or a successor PR is opened if PR #142 cannot be safely repaired; no new feature work starts until this open PR is resolved.
+
