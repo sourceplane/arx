@@ -74,14 +74,12 @@ func (c *Client) Upload(ctx context.Context, shard *runbundle.Shard) (*artifacts
 
 	// Inherit full environment — @actions/artifact needs ACTIONS_RUNTIME_TOKEN,
 	// ACTIONS_RESULTS_URL, GITHUB_RUN_ID, GITHUB_WORKSPACE, and other runner vars.
+	//
+	// NOTE: ACTIONS_RUNTIME_TOKEN and ACTIONS_RESULTS_URL are only injected by the
+	// runner into JavaScript/composite actions, not into `run:` script steps.
+	// The workflow should use actions/github-script to export these vars before
+	// running orun. See .github/workflows/orun-default-workflow.yaml.
 	cmd.Env = os.Environ()
-
-	// Debug: log ACTIONS_ env vars to help diagnose missing token issues
-	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "ACTIONS_") {
-			fmt.Fprintf(os.Stderr, "  [artifact-debug] %s\n", strings.SplitN(env, "=", 2)[0])
-		}
-	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
