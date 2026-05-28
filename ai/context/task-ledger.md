@@ -89,8 +89,11 @@
 
 |- Agent: Verifier
 |- Prompt: `ai/tasks/task-0144-verifier.md`
-|- Status: scoped and ready to begin (2026-05-29)
-|- Objective: verify PR #143 (`Task 0144: Orun Cockpit TUI Phase 1 foundation`) against Task 0144, the TUI cockpit spec pack, local/CI validation, and the Verifier Merge Protocol; merge only on PASS plus acceptable CI/log evidence.
-|- Scope boundary: verification of PR #143 only. Confirm TUI command registration, remote-state fail-closed behavior, service boundary/no shell-out, focused tests/build, Orun validation, secret safety, spec drift handling, and separation from PR #142. Do not repair or merge PR #142 and do not require later TUI phases.
-|- Acceptance: verifier report `ai/reports/task-0144-verifier.md` records PASS/FAIL; local checks and CI logs inspected; PR #143 either merged with local `main` synced and clean, or left open with clear blockers.
-|- Expected outcome: Task 0144 is either verified+merged, making the TUI Phase 1 foundation durable on `main`, or returned to implementer with precise blockers.
+|- Status: verified PASS, PR #143 merged as 17d3b58 (2026-05-29)
+|- Implementation: PR #143, branch impl/task-0144-tui-foundation, merge commit 17d3b58
+|- PR CI: Orun Plan SUCCESS, Harness dry-run guard SUCCESS (post-report-commit re-run)
+|- Reports: ai/reports/task-0144-implementer.md, ai/reports/task-0144-verifier.md
+|- Objective: verify PR #143 (`Task 0144: Orun Cockpit TUI Phase 1 foundation`) against Task 0144, the TUI cockpit spec pack, local/CI validation, and the Verifier Merge Protocol.
+|- Scope boundary: verification of PR #143 only. Confirmed TUI command registration, remote-state fail-closed behavior, service boundary/no shell-out, focused tests/build, Orun validation, secret safety, spec drift handling, and separation from PR #142. PR #142 untouched.
+|- Durable outcome: `orun tui` cobra command registered; `internal/tui` Phase 1 foundation lives on `main` with three-panel Bubble Tea shell, async workspace load, loading/error states, and an `internal/tui/services` boundary that calls Orun internals directly (no `exec.Command`, no `"orun"` literal). Phase 2/3 surfaces (GeneratePlan, RunPlan, Describe, follow-mode TailLogs, remote ListRuns) are explicit `errNotImplemented` stubs. Charm deps pinned (`bubbletea v1.3.5`, `bubbles v0.21.0`, `lipgloss v1.1.0`); `pgregory.net/rapid v1.1.0` substituted for the spec's stale `github.com/flyingmutant/rapid` mirror path (one-line spec edit recommended for next housekeeping pass).
+|- Open risks: PR #142 still open/dirty, out of scope here; next orchestrator cycle must decide its disposition before Phase 2.

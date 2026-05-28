@@ -1,24 +1,26 @@
 {
   "goal": "Orun TUI cockpit roadmap and open PR verification",
-  "current_task": "0144.1",
+  "current_task": null,
   "completed": [
     "0139.1",
     "0140",
     "0140.1",
     "0141",
-    "0141.1"
+    "0141.1",
+    "0144",
+    "0144.1"
   ],
   "repo_health": "yellow",
-  "next_focus": "verify-pr-143-tui-foundation",
+  "next_focus": "decide-pr-142-disposition-and-scope-task-0145-tui-phase-2",
   "last_verified": "2026-05-29",
   "waiting_for_input": "false",
-  "task_agent": "ai/tasks/task-0144-verifier.md",
+  "task_agent": null,
   "notes": [
     "Task 0144 implementer opened PR #143 from impl/task-0144-tui-foundation for Orun Cockpit TUI Phase 1 foundation.",
-    "PR #143 CI currently reports Orun Plan SUCCESS and Harness dry-run guard SUCCESS; verifier must inspect logs, not only status summaries.",
-    "Task 0144.1 is scoped as the verifier for PR #143 and must merge only on PASS plus green/acceptable CI.",
-    "Verifier must inspect command registration, remote-state fail-closed behavior, TUI service boundary, no subprocess shell-out, tests, and secret safety.",
-    "PR #142 remains open/dirty and is out of scope for Task 0144.1; do not merge or repair PR #142 in this verifier task.",
-    "Repo health remains yellow until PR #143 is verified/merged or failed with blockers documented; PR #142 is a separate unresolved open-risk item."
+    "Task 0144.1 verifier PASS: PR #143 merged via gh pr merge (merge commit 17d3b58) on 2026-05-29 05:13:38 +0530. Local main fast-forwarded; branch deleted; report committed pre-merge.",
+    "Verified: tui command registered, --remote-state fails closed pre-Bubble-Tea, internal/tui service boundary uses Orun internals directly (no exec.Command, no 'orun' literal under internal/tui/services), focused tests + full go test ./... pass, orun validate/plan/dry-run clean, no committed secrets.",
+    "Spec drift accepted: pgregory.net/rapid used in place of design.md's stale github.com/flyingmutant/rapid mirror path; recommend one-line spec edit in next housekeeping pass.",
+    "PR #142 still open/dirty and out of scope; next orchestrator cycle must decide close vs. narrow vs. supersede.",
+    "Repo health remains yellow until PR #142 is resolved; PR #143 is no longer an open-risk item."
   ]
 }
