@@ -35,6 +35,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Export Actions runtime token
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // ACTIONS_RUNTIME_TOKEN and ACTIONS_RESULTS_URL are injected by the
+            // runner into JavaScript actions but NOT into `run:` script steps.
+            // Export them so orun's built-in artifact upload can use them.
+            const token = process.env['ACTIONS_RUNTIME_TOKEN'] || '';
+            const resultsUrl = process.env['ACTIONS_RESULTS_URL'] || '';
+            if (token) core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            if (resultsUrl) core.exportVariable('ACTIONS_RESULTS_URL', resultsUrl);
       - name: Build orun from source
         run: go build -o /usr/local/bin/orun ./cmd/orun
       - name: Plan with Orun
@@ -83,6 +94,14 @@ jobs:
           node-version: '20'
       - name: Build orun from source
         run: go build -o /usr/local/bin/orun ./cmd/orun
+      - name: Export Actions runtime token
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = process.env['ACTIONS_RUNTIME_TOKEN'] || '';
+            const resultsUrl = process.env['ACTIONS_RESULTS_URL'] || '';
+            if (token) core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            if (resultsUrl) core.exportVariable('ACTIONS_RESULTS_URL', resultsUrl);
       - name: Download plan artifact
         uses: actions/download-artifact@v4
         with:
@@ -93,6 +112,7 @@ jobs:
           orun run '${{ needs.plan.outputs.plan-checksum }}' \
             --runner github-actions \
             --remote-state \
+            --intent examples/intent.yaml \
             --job "${{ matrix.id }}" \
             --exec-id "${{ needs.plan.outputs.exec-id }}" \
             --artifact github
