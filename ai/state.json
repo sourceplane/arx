@@ -1,0 +1,19 @@
+{
+  "goal": "Orun GitHub Artifacts stabilization and upcoming orun-tui-cockpit roadmap",
+  "current_task": null,
+  "completed": [
+    "0139.1",
+    "0140",
+    "0140.1"
+  ],
+  "repo_health": "green",
+  "next_focus": "next-github-artifacts-gap-or-tui-cockpit-readiness",
+  "last_verified": "2026-05-29",
+  "waiting_for_input": "false",
+  "task_agent": null,
+  "notes": [
+    "Task 0140 verified PASS and merged via PR #140 at merge commit 612e378.",
+    "orun github logs now prints actual log file contents with === shard / step === headers, log: prefix filtering, path traversal defense, and warn-and-continue on unreadable files.",
+    "GitHub Artifacts Requirement 14 satisfied. Requirement 20 test coverage added for log-content path."
+  ]
+}
