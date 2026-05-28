@@ -112,6 +112,7 @@ jobs:
           orun run '${{ needs.plan.outputs.plan-checksum }}' \
             --runner github-actions \
             --remote-state \
+            --intent examples/intent.yaml \
             --job "${{ matrix.id }}" \
             --exec-id "${{ needs.plan.outputs.exec-id }}" \
             --artifact github
