@@ -23,4 +23,3 @@ spec:
     layer: delivery
     surface: docs
     runtime: cloudflare
-    artifact-test: "true"
