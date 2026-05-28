@@ -81,18 +81,24 @@ func (c *Client) Upload(ctx context.Context, shard *runbundle.Shard) (*artifacts
 	// running orun. See .github/workflows/orun-default-workflow.yaml.
 	cmd.Env = os.Environ()
 
-	output, err := cmd.CombinedOutput()
+	// Run the helper. We capture stdout (JSON result) separately from stderr
+	// (log output from @actions/artifact). CombinedOutput() would mix them.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("upload helper failed: %w\noutput: %s", err, strings.TrimSpace(string(output)))
+		return nil, fmt.Errorf("upload helper failed: %w\nstderr: %s\nstdout: %s", err, strings.TrimSpace(stderr.String()), strings.TrimSpace(stdout.String()))
 	}
 
 	var result artifactstore.UploadResult
-	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, fmt.Errorf("parse upload helper output: %w\noutput: %s", err, string(output))
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		return nil, fmt.Errorf("parse upload helper output: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
 	}
 
 	if result.ID == "" {
-		return nil, fmt.Errorf("upload helper returned empty id\noutput: %s", string(output))
+		return nil, fmt.Errorf("upload helper returned empty id\nstdout: %s", stdout.String())
 	}
 
 	return &result, nil
