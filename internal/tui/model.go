@@ -146,10 +146,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastErr = nil
 		m.workspace = msg.Snapshot
 		m.browse.Workspace = msg.Snapshot
+		// Seed Plan Studio with the resolved intent file so `g` works
+		// without further configuration.
+		if msg.Snapshot != nil && msg.Snapshot.IntentFile != "" {
+			m.planStudio = m.planStudio.SetRequest(services.PlanRequest{
+				IntentFile: msg.Snapshot.IntentFile,
+			})
+		}
 		return m, nil
+
+	case services.PlanGeneratedMsg:
+		m.planStudio, _ = m.planStudio.Update(msg)
+		if msg.Err != nil {
+			m.lastErr = msg.Err
+		} else {
+			m.lastErr = nil
+		}
+		return m, nil
+
+	case views.PlanStudioSaveRequestedMsg:
+		// Save by regenerating with NamedPlan set — the service writes
+		// the plan via the configured state store. Keeps SavePlan
+		// idempotent (same checksum → same on-disk record).
+		if m.planStudio.Result == nil {
+			return m, nil
+		}
+		req := m.planStudio.Request
+		req.NamedPlan = msg.Name
+		m.planStudio = m.planStudio.MarkGenerating()
+		return m, views.GeneratePlanCmd(m.svc, req)
 
 	case services.ErrMsg:
 		m.lastErr = msg.Err
+		if m.activeMode == ModePlanStudio {
+			m.planStudio, _ = m.planStudio.Update(msg)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -184,6 +215,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showCommandPalette = false
 			}
 			return m, nil
+		}
+
+		// Mode switch keys (only active when nothing has captured esc/palette).
+		if !m.showCommandPalette && !m.showHelp {
+			switch msg.String() {
+			case "p":
+				m.activeMode = ModePlanStudio
+				return m, nil
+			case "b":
+				m.activeMode = ModeBrowse
+				return m, nil
+			case "h":
+				m.activeMode = ModeHistory
+				return m, nil
+			}
+		}
+
+		// Forward unhandled keys to the active view.
+		if m.activeMode == ModePlanStudio && m.activePanel == PanelMain {
+			var cmd tea.Cmd
+			m.planStudio, cmd = m.planStudio.Update(msg)
+			// Intercept the local Generate key to dispatch the service.
+			if cmd == nil && key.Matches(msg, m.planStudio.KeyMap().Generate) {
+				cmd = views.GeneratePlanCmd(m.svc, m.planStudio.Request)
+			}
+			return m, cmd
 		}
 	}
 	return m, nil
