@@ -102,8 +102,22 @@
 
 |- Agent: Implementer
 |- Prompt: `ai/tasks/task-0145.md`
-|- Status: scoped and ready to begin (2026-05-29)
+|- Status: verified PASS, PR #144 merged as 300a436 (2026-05-29)
+|- Implementation: PR #144, branch impl/task-0145-github-cli-pr142-supersede, merge commit 300a436
+|- PR CI: CI/Orun Plan SUCCESS, orun remote-state conformance/Harness dry-run guard SUCCESS; remaining matrix jobs SKIPPED as expected for a CLI/docs diff
+|- Reports: ai/reports/task-0145-implementer.md, ai/reports/task-0145-verifier.md
 |- Objective: resolve dirty PR #142 before new TUI Phase 2 feature work by preserving the valid GitHub CLI UX change (`--orun-dir` normalization and `github status` selector flags) in a clean successor PR and closing or explicitly dispositioning PR #142.
 |- Scope boundary: GitHub CLI UX fix plus matching docs/tests/report only; no TUI Phase 2, no TUI spec/process/history files from PR #142, no dummy component trigger, no artifact schema/workflow changes.
-|- Acceptance: final PR diff is narrow; blocker files and `pr-142-dummy-change` are absent; focused Go tests/build pass; implementer report names a real PR number; PR #142 is closed as superseded or a closure blocker is documented.
-|- Expected outcome: a verifier-ready successor PR that returns repo health toward green and unblocks TUI Cockpit Phase 2 after verification/merge.
+|- Durable outcome: `normalizeOrunDir()` helper centralizes `--orun-dir` resolution (empty → `./.orun`, parent → `<parent>/.orun`, already-`.orun` unchanged); `orun github status` registers the same six selector flags as `pull`/`logs`; public docs match the final CLI behavior including full-SHA and `--job` substring caveats; five new focused tests cover the three normalization branches plus selector flag registration and parse-time acceptance; `docs/github-log-pull-ux-review.md` documents three open friction items as non-blocking follow-ups. PR #142 (`happy-patch-113`) closed as superseded (closedAt 2026-05-29T00:01:57Z). Repo health green.
+
+## Task 0145.1
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0145-verifier.md`
+|- Status: verified PASS, PR #144 merged as 300a436 (2026-05-29)
+|- Implementation: verifier task only; verified and merged PR #144
+|- PR CI: CI/Orun Plan SUCCESS, orun remote-state conformance/Harness dry-run guard SUCCESS
+|- Reports: ai/reports/task-0145-verifier.md
+|- Objective: verify PR #144 against Task 0145, the implementer report, Task 0142 failure findings, and the Verifier Standard; merge only on PASS.
+|- Scope boundary: verification of PR #144 only. Confirmed diff narrowness (5 task-scoped files), absence of TUI specs/process/history blockers, absence of `pr-142-dummy-change` in product/config, code behavior of `normalizeOrunDir()` and `github status` selector flags, doc alignment, focused tests/build, PR CI green signal, PR #142 closed disposition, and absence of secrets/signed URLs/dummy triggers. Reviewed the default-resolution semantic change (`--orun-dir .` now resolves to `./.orun` instead of `filepath.Join(storeDir(), state.OrunDir)`) and accepted it as the intended unification documented in the updated public docs.
+|- Durable outcome: PR #144 merged to main at 300a436; repo health returns from yellow to green; TUI Cockpit Phase 2 is now unblocked.
