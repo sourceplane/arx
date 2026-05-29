@@ -20,10 +20,13 @@ For every cycle:
 1. Read `/ai/context/current.md`
 2. Read `/ai/context/task-ledger.md`, `/ai/context/decisions.md`, and `/ai/context/open-risks.md`
 3. Read `/ai/state.json`
-4. Read `.kiro/specs/orun-tui-cockpit/{requirements,design,tasks}.md` — the authoritative spec for TUI cockpit work
+4. Read `specs/orun-state-redesign/README.md` first — it is the index and read-order for the **active authoritative spec** (the trigger-first revision-first local state model, Phase 1, local-only). Then load whichever sibling documents the next task touches: `design.md`, `data-model.md`, `state-store.md`, `compatibility-and-migration.md`, `cli-surface.md`, `implementation-plan.md`, `test-plan.md`, `risks-and-open-questions.md`. All new work flows from this spec set unless the user redirects.
+   - Secondary specs still on disk but **not** the active driver this phase:
+     - `.kiro/specs/orun-tui-cockpit/{requirements,design,tasks}.md` — Bubble Tea cockpit; consumes `StateStore` once orun-state-redesign lands. Do not generate new TUI tasks until the state redesign reaches Milestone M5 unless the user explicitly asks.
+     - `.kiro/specs/github-artifacts/{requirements,design}.md` — RunBundle / GHA artifact pipeline; cross-check that new revision/execution keys remain compatible with the existing `gh-{run_id}-{attempt}-{sha}` ExecID shape.
 5. Inspect current repo code (not docs only)
 6. Inspect open PRs, merged PRs, failing tests
-7. Compare progress against the orun-tui-cockpit spec and current roadmap phase
+7. Compare progress against the orun-state-redesign spec and the current milestone (M0 → M6 in `specs/orun-state-redesign/implementation-plan.md`)
 8. Identify production-grade gaps, integration risks, missing seams
 9. Inspect any outstanding `/ai/proposals/**` spec-change proposals
 10. Accept, revise, defer, or ask the user about proposals before baking them into new tasks
@@ -54,21 +57,47 @@ Always evaluate:
 
 Active architecture source:
 
-- `.kiro/specs/orun-tui-cockpit/` is the authoritative spec for the `orun tui`
-  Bubble Tea cockpit feature. It contains three documents:
-  - `requirements.md` — 15 requirements across four MVP phases (browse,
-    plan studio, execution dashboard, advanced features)
-  - `design.md` — high-level and low-level design: three-panel layout,
-    OrunService interface, Bubble Tea model structure, plan-first safety state
-    machine, property-based testing approach, and go.mod additions
-  - `tasks.md` — 29 implementation tasks in dependency order across four
-    phases, with a Task Dependency Graph (16 execution waves)
-  When generating tasks for the TUI cockpit, read these three files first.
-  Task prompts must reference the relevant requirement numbers and design
-  sections.
+- `specs/orun-state-redesign/` is the **active authoritative spec** for
+  Phase 1 of the trigger-first revision-first local state model. The spec is a
+  multi-document engineering design pack (no rigid requirements/design/tasks
+  triplet — see `README.md` for the index and read order):
+  - `README.md` — entry point. Status table, doc map, phase boundaries, how
+    each agent role uses the spec.
+  - `design.md` — problem, goals/non-goals, architecture, on-disk layout,
+    package boundaries, correctness properties, alternatives considered, risk
+    register, dependency additions (`github.com/oklog/ulid/v2`).
+  - `data-model.md` — every persisted JSON schema with validation rules.
+  - `state-store.md` — `StateStore` interface contract, local-driver
+    semantics, atomicity guarantees, error taxonomy.
+  - `compatibility-and-migration.md` — preserved CLI workflows, resolution
+    chain, reader fallback, hidden `orun state migrate` command.
+  - `cli-surface.md` — exact behavioral changes per `orun` command.
+  - `implementation-plan.md` — **milestones M0–M6 (not waves).** Each
+    milestone declares goal, dependencies, suggested PR scope, and "done when"
+    criteria. **Implementer agents have latitude to scope their own PRs within
+    a milestone** — split or merge as long as each PR stays reviewable and
+    dependencies are respected. The Orchestrator does not assign sub-task
+    numbers; it names the milestone and lets the implementer slice.
+  - `test-plan.md` — coverage targets, property-based tests, E2E walk.
+  - `risks-and-open-questions.md` — live risk and open-question register.
+  When generating tasks for the state redesign, read `README.md` first, then
+  load the milestone from `implementation-plan.md` and the design sections it
+  cites. Task prompts MUST name the milestone ID and the design sections the
+  implementer must respect; they MUST NOT prescribe a PR count or sub-task
+  numbering. New risks discovered during implementation are appended to
+  `risks-and-open-questions.md`.
+- Secondary specs (kept on disk, not the active driver this phase):
+  - `.kiro/specs/orun-tui-cockpit/` — Bubble Tea cockpit. Will consume the new
+    `StateStore` after Milestone M5 lands. Do not start new TUI tasks until
+    the state redesign reaches M5 unless the user explicitly redirects.
+  - `.kiro/specs/github-artifacts/` — RunBundle / GHA artifact pipeline. Cross-check
+    that the new revision/execution keys remain compatible with the existing
+    `gh-{run_id}-{attempt}-{sha}` ExecID format produced by `internal/runbundle`.
 - If specs and code reality conflict, prefer a bounded migration task or a spec
-  proposal. Do not silently follow stale docs.
-- New task prompts must name the relevant specs in `Read First`.
+  proposal (write to `/ai/proposals/`). Do not silently follow stale docs.
+- New task prompts must name the relevant specs in `Read First` (always include
+  `specs/orun-state-redesign/README.md` plus the specific milestone and the
+  design sections in scope for state-touching work).
 - Do not assume uncertain user, account, credential, environment, or product
   decisions. Pause for human input when the wrong assumption would create
   rework, risk, or externally visible changes.
@@ -78,6 +107,9 @@ Operational access assumptions:
 - The Orchestrator, Implementer, and Verifier may assume full authenticated
   access to `gh` for GitHub PRs, Actions, checks, workflow logs, and repository
   inspection.
+- The orun-state-redesign feature is local-only (Phase 1): no external
+  credentials, cloud resources, or remote object stores. R2/S3/Supabase/DO are
+  explicitly out of scope until Phase 2.
 - The orun-tui-cockpit feature is a local CLI enhancement that does not require
   external credentials, cloud resources, or deployment infrastructure.
 - When component naming, integration patterns, or architectural decisions are
@@ -229,16 +261,30 @@ Rules:
 
 ```json
 {
-  "goal": "Bubble Tea TUI cockpit for Orun CLI",
+  "goal": "Phase 1 trigger-first revision-first local state model for Orun",
   "current_task": 1,
   "completed": [],
   "repo_health": "green",
-  "next_focus": "orun-tui-cockpit",
-  "last_verified": "2026-05-28",
+  "next_focus": "orun-state-redesign",
+  "active_spec": "specs/orun-state-redesign",
+  "active_milestone": "M0",
+  "secondary_specs": [
+    ".kiro/specs/orun-tui-cockpit",
+    ".kiro/specs/github-artifacts"
+  ],
+  "last_verified": "2026-05-29",
   "waiting_for_input": "false",
   "task_agent": "/ai/tasks/task-0001.md"
 }
 ```
+
+`active_spec` is the spec pack the next task MUST cite in `Read First`.
+`active_milestone` is the current milestone from
+`specs/orun-state-redesign/implementation-plan.md` the Orchestrator is feeding
+into implementer prompts. Bump it forward only when every PR satisfying the
+previous milestone's "done when" criteria is merged and verified. Implementer
+agents may split a milestone across multiple PRs; the milestone advances only
+when the full "done when" list is satisfied.
 
 `task_agent` always holds the path to the most recently produced task or verify `.md` file. Update it immediately after writing each file — do not batch.
 `waiting_for_input` is a string field with values `"true"` or `"false"`.
@@ -429,38 +475,49 @@ Example Prompt Output
 
 Agent: Implementer
 Current Repo Context:
-The orun-tui-cockpit spec is authoritative for this task. The TUI cockpit
-feature is being built from scratch.
+The orun-state-redesign spec at `specs/orun-state-redesign/` is authoritative
+for this task. Phase 1 of the trigger-first revision-first local state model is
+being built from scratch. This task targets Milestone M0 (Foundation) per
+`specs/orun-state-redesign/implementation-plan.md`.
 Objective:
-Create the `cmd/tui.go` Cobra command entry point and basic workspace discovery
-logic. This implements the foundation for the TUI cockpit (Requirement 1).
+Add `github.com/oklog/ulid/v2` as a pinned direct dependency and introduce the
+`internal/testfx/statefs` helper package that future state-layer tests will use
+to spin up isolated `.orun/` workspaces. This unblocks Milestones M1
+(triggerctx) and M2 (statestore).
 PR Boundary:
-One PR adds the `tui` subcommand registration, workspace discovery, and basic
-error handling. It does not implement the three-panel layout or any view modes
-yet.
+Scope this milestone as you see fit. The natural shape is one PR covering the
+`go.mod` / `go.sum` change AND `internal/testfx/statefs/` with `NewWorkspace`,
+`AssertJSONFile`, and `ReadJSON[T]` helpers plus their unit tests. If you
+discover a cleaner split (e.g. dependency pin separate from harness), you have
+latitude to ship two PRs — just keep each one reviewable and ensure both land
+before M1 starts. No production-code changes, no CLI surface changes.
 Read First:
-.kiro/specs/orun-tui-cockpit/requirements.md (Requirement 1)
-.kiro/specs/orun-tui-cockpit/design.md (Section 2.1: Entry Point)
-.kiro/specs/orun-tui-cockpit/tasks.md (Task 1)
+specs/orun-state-redesign/README.md (entry + read order)
+specs/orun-state-redesign/implementation-plan.md (Milestone M0)
+specs/orun-state-redesign/design.md (§9 Correctness Properties, §13 Dependency additions)
+specs/orun-state-redesign/test-plan.md (§1 Coverage targets, §8 CI integration)
 Reference Only:
-.kiro/specs/orun-tui-cockpit/design.md (Section 3: Low-Level Design)
+specs/orun-state-redesign/design.md (§5 Architecture — for context on what the
+test harness will eventually validate)
 Non-Goals:
-No three-panel layout implementation.
-No Bubble Tea model structure.
-No view modes.
+No TriggerOccurrence model.
+No StateStore interface.
+No CLI changes.
+No `.orun/revisions/` writes.
 Constraints:
-Must use Cobra command registration pattern consistent with existing Orun CLI.
-Must discover workspace root by walking up from current directory.
-Acceptance:
-`orun tui` command registered and callable.
-Workspace discovery logic implemented and tested.
-Error handling for missing workspace.
-Basic unit tests for workspace discovery.
+Pin `oklog/ulid/v2` at its current latest stable release; do not float.
+`internal/testfx/statefs` must not import any other `internal/` package to keep
+it dependency-free at the leaf.
+Acceptance (the M0 "done when" criteria from `implementation-plan.md`):
+`go build ./...` passes.
+`go test ./...` passes.
+`internal/testfx/statefs` has unit tests for `NewWorkspace`, `AssertJSONFile`,
+and `ReadJSON[T]`.
 Verification:
-Run `go build ./cmd/orun`.
-Run `./orun tui --help`.
-Run targeted unit tests.
-PR opened.
+Run `go mod tidy && go build ./...`.
+Run `go test ./internal/testfx/statefs/...`.
+Run `go test ./...`.
+PR(s) opened and merged.
 
 ⸻
 
