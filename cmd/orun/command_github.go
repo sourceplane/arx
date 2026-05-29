@@ -16,6 +16,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// normalizeOrunDir resolves --orun-dir into the actual .orun directory path.
+// Semantics: --orun-dir is treated as a working/parent directory whose
+// .orun/ child is used. For backward compatibility, a path whose base is
+// already ".orun" is returned unchanged. Empty input defaults to ".".
+func normalizeOrunDir(orunDir string) string {
+	if orunDir == "" {
+		orunDir = "."
+	}
+	if filepath.Base(orunDir) == state.OrunDir {
+		return orunDir
+	}
+	return filepath.Join(orunDir, state.OrunDir)
+}
+
 var (
 	githubRunsWorkflow string
 	githubRunsBranch   string
@@ -356,15 +370,7 @@ func runGithubPull() error {
 		break // first group
 	}
 
-	orunDir := githubPullOrunDir
-	if orunDir == "" {
-		orunDir = "."
-	}
-	// Normalize: --orun-dir is a working directory; .orun/ lives inside it.
-	// Accept either the working dir or a path that already ends in .orun for back-compat.
-	if filepath.Base(orunDir) != state.OrunDir {
-		orunDir = filepath.Join(orunDir, state.OrunDir)
-	}
+	orunDir := normalizeOrunDir(githubPullOrunDir)
 
 	// Download all shards
 	fmt.Fprintf(os.Stderr, "Downloading %d shard(s) for %s...\n", len(targetShards), targetExecID)
