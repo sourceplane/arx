@@ -1,4 +1,4 @@
-.PHONY: build run validate debug plan clean test help examples-validate examples-debug examples-plan examples-gha-smoke
+.PHONY: build run validate debug plan clean test help examples-validate examples-debug examples-plan examples-gha-smoke test-state-redesign
 
 BINARY_NAME=orun
 BINARY_PATH=./cmd/$(BINARY_NAME)
@@ -97,3 +97,8 @@ release-test:
 all: clean build test run-validate run-debug run-plan
 	@echo ""
 	@echo "✅ All targets completed"
+
+test-state-redesign:
+	@echo "🧪 Running state-redesign test suites..."
+	@go test -count=1 ./internal/testfx/statefs/...
+	# add packages as state-redesign milestones land

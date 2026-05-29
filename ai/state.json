@@ -1,31 +1,23 @@
 {
-  "goal": "Orun TUI cockpit roadmap and open PR verification",
-  "current_task": null,
-  "completed": [
-    "0139.1",
-    "0140",
-    "0140.1",
-    "0141",
-    "0141.1",
-    "0144",
-    "0144.1",
-    "0145",
-    "0145.1",
-    "0146",
-    "0146.1",
-    "0147",
-    "0147.1"
-  ],
+  "goal": "Phase 1 trigger-first revision-first local state model for Orun",
+  "current_task": "0001",
+  "completed": [],
   "repo_health": "green",
-  "next_focus": "tui-cockpit-phase-3-next-slice-describe-or-remote-state-polling",
+  "next_focus": "orun-state-redesign-M0-foundation",
+  "active_spec": "specs/orun-state-redesign",
+  "active_milestone": "M0",
+  "secondary_specs": [
+    ".kiro/specs/orun-tui-cockpit",
+    ".kiro/specs/github-artifacts"
+  ],
   "last_verified": "2026-05-29",
   "waiting_for_input": "false",
-  "task_agent": null,
+  "task_agent": "/ai/tasks/task-0001.md",
   "notes": [
-    "Task 0147 verified PASS and merged via PR #146 at merge commit 8b6f609 on 2026-05-29. LiveOrunService.RunPlan landed for local dry-run with fail-closed validation (nil plan / DryRun:false / RemoteState:true rejected), Plan Studio d-key dispatch with success-only transition to Run Dashboard, and minimal streaming event timeline that stops re-arming after RunEventRunDone.",
-    "Implementer report ai/reports/task-0147-implementer.md was missing from the PR branch; verifier authored and committed it from PR evidence (1abb9cb) prior to merge, per Task 0147 prompt allowance. Recurring gap — recommend tightening implementer skill to commit reports in the same PR push.",
-    "Safety posture confirmed: zero exec.Command / os/exec / orun subprocess usage anywhere under internal/tui; runner constructed with hard-coded dryRun=true; sends are ctx.Done-guarded; final RunDone uses non-blocking send so runner cannot deadlock if UI stops draining.",
-    "Local checks PASS: go test internal/tui + internal/runner + cmd/orun, go build cmd/orun, kiox orun validate/plan/dry-run (2 components × 5 envs → 3 jobs, all simulated).",
-    "Next orchestrator cycle: pick the next Phase 3 slice (Task 21 Describe, or remote-state event polling) per .kiro/specs/orun-tui-cockpit/tasks.md."
+    "Roadmap pivot 2026-05-30: TUI cockpit work paused at PR #146 merged (Task 0147.1). New active spec is specs/orun-state-redesign/ (Phase 1, local-only). Task numbering restarts at 0001 for this spec lineage.",
+    "Milestone M0 (Foundation) selected as the first task. Goal: add github.com/oklog/ulid/v2 dependency, scaffold internal/testfx/statefs helper package (NewWorkspace, AssertJSONFile, ReadJSON[T]), and add make test-state-redesign Makefile target (initially a no-op until M1+ packages land). No production code touched.",
+    "Spec drift to flag during M0: test-plan.md §1 still references github.com/flyingmutant/rapid as the property-test library but go.mod already pins pgregory.net/rapid v1.1.0 (the same module under its current import path). Worth a small spec-clarification proposal; not a blocker for M0.",
+    "Local fs state: ai/ directory was deleted in the working tree during the pivot; this orchestrator cycle re-establishes state.json, context/, tasks/, waiting_for_input.md from scratch under the new spec.",
+    "Previous TUI cockpit lineage (tasks 0139-0147 + sub-tasks) is preserved in git history; not re-listed in completed[] under the new state-redesign lineage."
   ]
 }
