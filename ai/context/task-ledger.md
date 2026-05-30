@@ -189,6 +189,141 @@ history; reports/prompts are no longer present in the working tree.
    atomicity / exclusivity property suite per `test-plan.md` §2 / §3,
    plus `pgregory.net/rapid` round-trip on path-alphabet inputs).
 
+## Task 0004
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0004.md`
+|- Status: **scoped and ready to begin** (2026-05-30)
+|- Milestone: M2 — `internal/statestore` (PR B)
+|- Objective: replace the PR-A stubs for `*LocalStore.CompareAndSwap` and
+   `*LocalStore.List` with real Phase-1 implementations per `state-store.md`
+   §3.3 and §3.4, and add the atomicity / exclusivity / CAS / `pgregory.net/rapid`
+   property suite per `test-plan.md` §2 and §3.
+|- Scope boundary: `internal/statestore/local.go` (real `CompareAndSwap` +
+   `List`) plus new test files in `internal/statestore/`. No `refs.go` /
+   `indexes.go` (PR C). No production-caller wiring (`cmd/orun`,
+   `internal/state`, `internal/runner`, `internal/runbundle` untouched).
+   No spec changes. No new exported symbols beyond the frozen interface.
+|- Acceptance: `make test-state-redesign` green with `internal/statestore`
+   coverage ≥ 95 % (target ≥ 96 %); `go test -race -count=1
+   ./internal/statestore/...` green; PR-A stub error strings ("not
+   implemented in PR A") gone from `local.go`; package stays leaf-clean.
+|- Expected outcome: M2 contract closed on the local driver; PR C
+   (typed refs/indexes marshallers) and M3 (`internal/revision`) unblocked.
+
+## Task 0004
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0004.md`
+|- Status: **implemented; PR #155 OPEN, MERGEABLE, CLEAN, all required CI checks SUCCESS** — awaiting verifier
+|- Milestone: M2 — `internal/statestore` (PR B)
+|- Branch: `impl/task-0004-m2-statestore-prb` @ `4875025`
+|- Objective: replace the PR-A stubs for `*LocalStore.CompareAndSwap` and
+   `*LocalStore.List` with real Phase-1 implementations per `state-store.md`
+   §3.3 and §3.4, and add the atomicity / exclusivity / CAS / `pgregory.net/rapid`
+   property suite per `test-plan.md` §2 and §3.
+|- Scope boundary: `internal/statestore/local.go` (real `CompareAndSwap` +
+   `List`) plus new test files in `internal/statestore/`. No `refs.go` /
+   `indexes.go` (PR C). No production-caller wiring (`cmd/orun`,
+   `internal/state`, `internal/runner`, `internal/runbundle` untouched).
+   No spec changes. No new exported symbols beyond the frozen interface.
+|- Acceptance: `make test-state-redesign` green with `internal/statestore`
+   coverage ≥ 95 % (target ≥ 96 %); `go test -race -count=1
+   ./internal/statestore/...` green; PR-A stub error strings ("not
+   implemented in PR A") gone from `local.go`; package stays leaf-clean.
+|- Implementer report: `ai/reports/task-0004-implementer.md` — reported
+   coverage 95.4 % on `internal/statestore`; PR Number: 155.
+|- Expected outcome: M2 contract closed on the local driver; PR C
+   (typed refs/indexes marshallers) and M3 (`internal/revision`) unblocked.
+
+## Task 0004 (Verifier pass)
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0004-verifier.md`
+|- Status: **verified PASS and merged** (2026-05-30, PR #155 → main commit `0fa2111`)
+|- Verifying: PR **#155** (`impl/task-0004-m2-statestore-prb` @ `4875025`)
+|- Implementation: PR **#155** squash-merged → main commit `0fa2111`. Branch
+   `impl/task-0004-m2-statestore-prb` deleted.
+|- PR CI: `CI / Orun Plan` SUCCESS (run **26670829548**, real
+   `orun plan --from-ci github …` invocation, `0 components × 3 envs → 0 jobs`
+   legitimate empty-matrix M2-PR-B shape). `orun remote-state conformance /
+   Harness dry-run guard` SUCCESS (run **26670829550**, full `[guard] PASS:`
+   battery covering bash syntax, command-count thresholds, duplicate-claim
+   helper PASS + FAIL, status helper PASS + FAIL across status states,
+   exported env asserts for `ORUN_EXEC_ID` / `ORUN_REMOTE_STATE`).
+|- Local checks: `go build ./...`, `go vet ./...`, `go test -race -count=1
+   ./internal/statestore/...` (`14.069s`), `make test-state-redesign`
+   (coverage **95.4 %**, gate ≥ 95 %), `kiox -- orun validate / plan
+   --changed / run --dry-run` all green. The persistent composition-cache
+   quirk DID NOT reproduce on this verifier run.
+|- Reports: implementer at `ai/reports/task-0004-implementer.md`; verifier at
+   `ai/reports/task-0004-verifier.md`.
+|- Objective: validate Task 0004 against the Verifier Standard in
+   `agents/orchestrator.md` and the M2 PR-B "done when" criteria in
+   `specs/orun-state-redesign/implementation-plan.md`. Confirm
+   `*LocalStore.CompareAndSwap` and `*LocalStore.List` semantics vs
+   `state-store.md` §3.3 / §3.4, the four required atomicity / exclusivity
+   / CAS / `pgregory.net/rapid` tests, leaf-clean imports, no
+   production-caller wiring, and ≥ 95 % coverage.
+|- Scope boundary: verification only (verifier report + previously missing
+   implementer report committed to the PR branch as verifier-only
+   housekeeping); no production-code edits, no spec edits, no PR-C work.
+|- Durable outcome on main: real `*LocalStore.CompareAndSwap` (Read →
+   revision compare → Write; `ErrConflict` on mismatch; per-path
+   `sync.Mutex` narrows the in-process race, additive per §6 "best-effort
+   on local") and real `*LocalStore.List` (`WalkDir` over translated
+   prefix; symlinks skipped via `d.Type()&fs.ModeSymlink`; `.orun-tmp-*`
+   filtered; logical paths via `filepath.ToSlash`; non-existent prefix →
+   empty slice; `ErrInvalid` on alphabet/escape via `paths.go`). 17 new
+   tests across CAS happy/error paths, List edges (symlinks, FIFO unix-only,
+   tempfile filter, escape rejection, ctx cancel), 100-goroutine atomicity
+   + exclusivity, CAS exactly-one-wins, `pgregory.net/rapid` path-alphabet
+   round-trip with stable lowercase-hex sha256 `Revision`. Package stays
+   leaf-clean; no production-caller wiring.
+|- Verifier non-blocking findings: per-path `sync.Mutex` is in-process only
+   (irrelevant to local Phase 1; remote driver Phase 2 supersedes);
+   empty-directory `Delete` returns `ErrInvalid` (carried from Task 0003,
+   §3.4 only mandates non-empty); coverage 95.4 % satisfies gate but sits
+   below 96 % stretch target — PR-C should lift it.
+|- Expected next: Task 0005 = M2 PR-C (typed refs.go + indexes.go
+   marshallers + `RebuildIndexes()` stub) closes Milestone M2; M3
+   (`internal/revision`) starts after PR-C verification.
+
+## Task 0005
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0005.md`
+|- Status: **scoped and ready to begin** (2026-05-30)
+|- Milestone: M2 — `internal/statestore` (PR C — closes M2)
+|- Suggested branch: `impl/task-0005-m2-statestore-prc`
+|- Objective: add typed ref reader/writer + CAS helpers (`refs.go`) covering
+   `data-model.md` §6.1–§6.4 (`LatestRevisionRef`, `LatestExecutionRef`,
+   `TriggerRef`, `NamedRef`) and typed index writers (`indexes.go`) covering
+   §7.1 / §7.2 (`RevisionIndexEntry`, `ExecutionIndexEntry`) plus a
+   `RebuildIndexes()` stub returning `%w: rebuild deferred to M3+` wrapping
+   `ErrInvalid`. Helpers wrap the frozen `StateStore` primitives with
+   deterministic JSON marshal/unmarshal — no new persistence semantics, no
+   new error sentinels, no new path helpers.
+|- Scope boundary: `internal/statestore/refs.go`, `internal/statestore/indexes.go`,
+   `internal/statestore/refs_test.go`, `internal/statestore/indexes_test.go`. NO
+   production-caller wiring (`cmd/orun`, `internal/state`, `internal/runner`,
+   `internal/runbundle` untouched). NO spec edits. NO new exported symbols
+   beyond the typed surface for refs/indexes.
+|- Constraints: zero string concatenation for paths (everything via `paths.go`);
+   deterministic JSON (`MarshalIndent("", "  ")` + trailing `\n` + no HTML
+   escaping); CAS helpers take `*ObjectMeta` from prior read (no re-read inside
+   helper); index writers use `CreateIfAbsent` (re-write → `ErrExists`);
+   package stays leaf-clean.
+|- Acceptance: `make test-state-redesign` green with `internal/statestore`
+   coverage ≥ 96 % (gate stays ≥ 95 %); `go test -race -count=1
+   ./internal/statestore/...` green; round-trip / `ErrNotFound` /
+   `ErrExists` / CAS-conflict / JSON byte-stability tests via
+   `internal/testfx/statefs.AssertJSONFile`; package leaf-clean; PR opened
+   with real number; implementer report committed to the PR branch.
+|- Expected outcome: Milestone M2 closed (M2 "Done when" satisfied —
+   coverage, atomicity tests, concurrent `CreateIfAbsent` N=100, public
+   docs on every exported symbol). M3 (`internal/revision`) unblocked.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
