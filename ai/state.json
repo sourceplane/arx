@@ -1,23 +1,22 @@
 {
   "goal": "Phase 1 trigger-first revision-first local state model for Orun",
-  "current_task": "0021",
-  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0018", "0019", "0020"],
+  "current_task": null,
+  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0018", "0019", "0020", "0021"],
   "repo_health": "green",
-  "next_focus": "orun-state-redesign-M6-e2e-and-property-gates",
+  "next_focus": "orun-state-redesign Phase 1 COMPLETE (M0–M6 all merged); next spec to be re-scoped",
   "active_spec": "specs/orun-state-redesign",
-  "active_milestone": "M6",
+  "active_milestone": "M6 — CLOSED",
   "secondary_specs": [
     ".kiro/specs/orun-tui-cockpit",
     ".kiro/specs/github-artifacts"
   ],
   "last_verified": "2026-05-30",
-  "waiting_for_input": "false",
-  "task_agent": "ai/tasks/task-0021.md",
+  "waiting_for_input": "true",
+  "task_agent": null,
   "notes": [
-    "Task 0021 (M6 implementer) scoped on 2026-05-30 to land E2E + property gates per specs/orun-state-redesign/{implementation-plan.md §M6, test-plan.md §2/§3/§4/§8, design.md §9}. Base: main at 32d026f. Branch: impl/task-0021-m6-e2e-and-property-gates.",
-    "PR boundary (4 items): (1) cmd/orun/state_e2e_test.go — 15-step revision-first walk (plan→run→status→logs→describe revision latest→get plans→state migrate dry-run+idempotent) using internal/testfx/statefs.NewWorkspace, each step in its own t.Run, Cobra programmatic invocation (no os/exec). (2) internal/revision/keys_property_test.go — rapid-driven revision-key uniqueness + collision-suffix correctness per test-plan §3.2. (3) statestore concurrent decode-strict rapid property (or cite existing equivalent in local_prb_test.go). (4) Makefile test-state-redesign target: add -race + TestStateE2E invocation; keep coverage gates (statestore ≥95, revision ≥90, executionstate ≥90) unchanged.",
-    "Existing M6 substrate already in place: internal/triggerctx/ids_test.go TestTriggerKey_PropertyStabilityAndFormat (rapid), internal/executionstate/property_test.go TestNextExecutionKey_MonotonicityUnderConcurrency + TestSanitizeExecID_AlphabetProperty (rapid), internal/statestore/local_prb_test.go (CAS/atomicity/concurrent CreateIfAbsent), pgregory.net/rapid v1.1.0 pinned in go.mod, oklog/ulid/v2 v2.1.1 pinned, make test-state-redesign target shipped in Makefile lines 101-117 with the three coverage gates.",
-    "Non-goals enforced: no new feature surface (test-only/coverage-gate work), no production-code changes in the four state packages or cmd/orun/command_*.go (E2E test consumes them, doesn't modify them), no spec edits, no Option B trigger-name resolver-branch work (deferred), no MirrorModeHardlink debug-fold decision, no RunnerHooks.AfterStateUpdate re-architecture, no --persist-revision flag wiring, no coverage-threshold raises. Acceptance gates: go build/vet, make test-state-redesign, go test -race ./... -count=1 -timeout 300s, go test -race -run TestStateE2E -count=3 flake check.",
-    "Carry-forward into M6+ housekeeping (deferred OUT of 0021): MirrorModeHardlink debug-fold decision, RunnerHooks.AfterStateUpdate async-mirror evaluation, --persist-revision flag wiring, internal/executionstate coverage headroom (currently 90.0% exact floor — M6 E2E may bump organically), Option B trigger-name resolver branch from ai/proposals/task-0019-spec-update.md."
+    "M6 (Task 0021) closed 2026-05-30T19:17:23Z. PR #165 squash-merged to main as ad3656e. Test-only / coverage-gate work — no production source files modified. Adds cmd/orun/state_e2e_test.go (14-subtest revision-first walk per test-plan.md §4), internal/revision/keys_property_test.go (rapid-driven RevisionKey + ResolveCollision properties), internal/revision/m6_coverage_test.go (lifts internal/revision from 84.9% → 90.3% via ScanLegacyPlanHashes + WriteLegacyNamedPlan + RevisionKey input validation), and wires TestStateE2E into make test-state-redesign under -race.",
+    "Post-merge gates on main (ad3656e): go test ./... -race all green; make test-state-redesign all four gates green (statestore 95.7%, revision 90.3%, executionstate 90.0%, triggerctx passes). The revision floor had been silently breached at 84.9% pre-M6; M6 restores it without lowering the threshold.",
+    "Phase 1 (Local) of orun-state-redesign is structurally complete. M0 #152 4ea1980, M1 #153 db342dd, M2 #156 cd8b3e8, M3 #158 bfc2ae6, M4 #159 ed48633 + #160 d51e828, M5 #161 7a9c494 + #162 59d06f3 + #163 73108ee + #164 17ef788, M6 #165 ad3656e.",
+    "Carry-forward (deferred from M6, candidates for follow-on session): MirrorModeHardlink debug-fold decision, RunnerHooks.AfterStateUpdate async-mirror evaluation, --persist-revision flag wiring (Phase 2), Option B trigger-name resolver branch (ai/proposals/task-0019-spec-update.md), --prune-legacy (Phase 2 §6)."
   ]
 }

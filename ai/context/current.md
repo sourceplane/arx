@@ -2,17 +2,69 @@
 
 ## Active Spec
 `specs/orun-state-redesign/` (Phase 1, local-only) — trigger-first revision-first
-local state model. See `specs/orun-state-redesign/README.md` for the index and
-read order.
+local state model. **Phase 1 STRUCTURALLY COMPLETE** with M6 merged.
+See `specs/orun-state-redesign/README.md` for the index and read order.
 
 ## Active Milestone
-**M5 — CLI rewire — CLOSED.** All four sub-tasks merged on `main`:
-M5.a (PR #161 → `7a9c494`), M5.b (PR #162 → `59d06f3`),
-M5.c (PR #163 → `73108ee`), **M5.d (PR #164 → `17ef788`)**.
-**Next: Task 0021 = M6 implementer** — E2E + property gates per
-`specs/orun-state-redesign/implementation-plan.md`.
+**M6 — E2E + property gates — CLOSED.** PR **#165** squash-merged to `main`
+as `ad3656e` on 2026-05-30T19:17:23Z. Branch
+`impl/task-0021-m6-e2e-and-property-gates` deleted.
 
-## Last Completed Implementer/Verifier (0020 — M5.d)
+All six milestones now closed on main:
+
+| M  | PR    | Main commit |
+|----|-------|-------------|
+| M0 | #152  | `4ea1980`   |
+| M1 | #153  | `db342dd`   |
+| M2 | #156  | `cd8b3e8`   |
+| M3 | #158  | `bfc2ae6`   |
+| M4 | #159 / #160 | `ed48633` / `d51e828` |
+| M5 | #161–#164 | `7a9c494` … `17ef788` |
+| M6 | #165  | `ad3656e`   |
+
+**Next focus: re-scope.** Phase 2 (remote backend) items, the deferred
+M6 carry-forward (MirrorModeHardlink, async mirror, --persist-revision,
+Option B resolver), and the paused .kiro/specs roadmaps are all
+candidates — to be selected in a follow-on session.
+
+## Last Completed Implementer/Verifier (0021 — M6)
+- Single-pass closure (implementer + verifier in one cycle).
+- PR **#165** on `impl/task-0021-m6-e2e-and-property-gates`. Squash-merged
+  to `main` as `ad3656e` "Task 0021 / M6: end-to-end + property gates
+  for state redesign (#165)" on 2026-05-30T19:17:23Z.
+- Required CI both PASS on PR head: `Orun Plan` SUCCESS (53 s);
+  `Harness dry-run guard` SUCCESS (15 s). Matrix legs SKIPPED
+  legitimately (empty matrix — test-only change).
+- Diff stat (test-only / coverage-gate work):
+  - new: `cmd/orun/state_e2e_test.go` (~340 LOC, TestStateE2E — 14
+    sub-tests walking all of test-plan.md §4 from plan synthesis
+    through state-migrate idempotence).
+  - new: `internal/revision/keys_property_test.go` (~190 LOC,
+    rapid-driven RevisionKey determinism + distinctness +
+    ResolveCollision suffix contiguity).
+  - new: `internal/revision/m6_coverage_test.go` (~160 LOC, lifts
+    `internal/revision` from 84.9 % → 90.3 % via ScanLegacyPlanHashes
+    happy/filter/nil-store paths, WriteLegacyNamedPlan error paths,
+    RevisionKey input validation).
+  - modified: `Makefile` (`test-state-redesign` propagates `-race`
+    to every step, adds TestStateE2E invocation).
+  - artifacts: `ai/tasks/task-0021.md`, `ai/tasks/task-0021-report.md`,
+    `ai/reports/task-0021-verifier.md`.
+- Post-merge gates on main: `go test ./... -race -count=1 -timeout 600s`
+  all-green; `make test-state-redesign` all four gates green
+  (statestore 95.7 %, revision 90.3 %, executionstate 90.0 %).
+- The `internal/revision` floor had been silently breached at 84.9 %
+  on main tip pre-M6; M6 restores the documented ≥ 90 % floor
+  without lowering any threshold.
+- Verifier report: `ai/reports/task-0021-verifier.md`. Single-pass
+  closure recorded per `orun-saas-verifier` skill convention.
+- Phase 1 reservations honoured (NOT wired): MirrorModeHardlink
+  debug-fold decision deferred, RunnerHooks.AfterStateUpdate
+  re-architecture deferred, `--persist-revision` flag wiring deferred
+  to Phase 2, Option B trigger-name resolver branch deferred,
+  `--prune-legacy` deferred to Phase 2 §6.
+
+## Past Completed (0020 — M5.d)
 - Implementer + verifier both Task 0020 (single-pass closure) → PR **#164** on
   `impl/task-0020-m5d-orun-state-migrate`.
 - Squash-merged to `main` as `17ef788` "Task 0020: M5.d — hidden orun state

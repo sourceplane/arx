@@ -932,34 +932,25 @@ history; reports/prompts are no longer present in the working tree.
 
 ## Task 0021 — M6 E2E + property gates
 
-- Agent: Implementer
+- Agent: Implementer + Verifier (single-pass closure)
 - Prompt: `ai/tasks/task-0021.md`
-- Status: scoped and ready to begin (2026-05-30)
-- Base: `main` at `32d026f`. Branch: `impl/task-0021-m6-e2e-and-property-gates`
-- Objective: Lock in Phase-1 correctness properties from `design.md` §9 as
-  permanent regression gates, and ship the end-to-end CLI walk that exercises
-  the full revision-first path through real fixtures.
-- Scope boundary: (1) `cmd/orun/state_e2e_test.go` — 15-step walk per
-  `test-plan.md` §4, one `t.Run` per step, Cobra programmatic invocation,
-  `internal/testfx/statefs.NewWorkspace` for isolation. (2)
-  `internal/revision/keys_property_test.go` — rapid-driven uniqueness +
-  collision-suffix correctness per §3.2. (3) Statestore decode-strict
-  concurrent property (or cite the existing equivalent in `local_prb_test.go`).
-  (4) `Makefile` `test-state-redesign` extension: add `-race` + `TestStateE2E`
-  invocation, keep coverage gates unchanged. In: tests + Makefile only. Out:
-  any production-code change to the four state packages or `cmd/orun`
-  commands; Option B trigger-name resolver; MirrorModeHardlink debug-fold;
-  RunnerHooks.AfterStateUpdate re-architecture; `--persist-revision` wiring;
-  coverage-threshold raises.
-- Acceptance: `go build ./...`, `go vet ./...`, `make test-state-redesign`,
-  `go test -race ./... -count=1 -timeout 300s`, `go test -race -run
-  TestStateE2E -count=3` all exit 0; coverage gates (statestore ≥95,
-  revision ≥90, executionstate ≥90, triggerctx ≥90) hold; CI required
-  checks `Orun Plan` + `Harness dry-run guard` GREEN on PR.
-- Expected outcome: M6 closes the spec's regression-gate work; future
-  drift in trigger-key/revision-key/exec-key/statestore-atomicity/CLI-walk
-  invariants is caught by `go test`. Closes the orun-state-redesign Phase 1
-  spec.
+- Status: **PASS + merged** (2026-05-30T19:17:23Z). **M6 milestone CLOSED — Phase 1 of orun-state-redesign STRUCTURALLY COMPLETE**.
+- Base: `main` at `32d026f`. Branch: `impl/task-0021-m6-e2e-and-property-gates`.
+- Implementation: PR **#165** squash-merged to main as `ad3656e` "Task 0021 / M6: end-to-end + property gates for state redesign (#165)" on 2026-05-30T19:17:23Z. Branch deleted.
+- Required CI on PR head: `Orun Plan` PASS (53 s); `Harness dry-run guard` PASS (15 s). Matrix legs SKIPPED legitimately (empty matrix — test-only change).
+- Implementer report: `ai/tasks/task-0021-report.md`.
+- Verifier report: `ai/reports/task-0021-verifier.md` (single-pass closure — no separate verifier prompt).
+- Objective: lock in Phase-1 correctness properties from `design.md` §9 as permanent regression gates, and ship the end-to-end CLI walk that exercises the full revision-first path through real fixtures.
+- Scope landed (test-only / coverage-gate, +829 / -5):
+  - new `cmd/orun/state_e2e_test.go` (~340 LOC, TestStateE2E with 14 sub-tests walking test-plan.md §4 from plan synthesis → revision documents → latest refs → legacy plans/ mirror → execution setup+finalize → execution.json terminal status → indexes/executions → read-side resolver → describe revision latest → get plans → state migrate dry-run + sha256 byte-equal idempotence). Each spec step gets its own `t.Run` for unambiguous failure attribution. Drives the same package-level subroutines (`synthesizeRevisionForRun`, `setupRevisionExecution`, `finalizeRevisionExecution`, `describeRevision`, `loadRevisionPlanRows`, `runStateMigrate`) the Cobra RunE handlers call.
+  - new `internal/revision/keys_property_test.go` (~190 LOC, `pgregory.net/rapid`-driven properties): determinism, distinctness (rules out scope-truncation / short-hash regression), and ResolveCollision suffix contiguity (-x1..-xN under N forced collisions with isolated per-iteration LocalStore).
+  - new `internal/revision/m6_coverage_test.go` (~160 LOC, targeted unit coverage): `ScanLegacyPlanHashes` (was 0%) — empty workspace, nil store, filter+sort path; `WriteLegacyNamedPlan` — nil store, reserved "latest", invalid component, happy path; `RevisionKey` input validation — zero trigger, short plan hash.
+  - modified `Makefile` (`test-state-redesign` propagates `-race` to every step, adds `TestStateE2E` invocation, keeps the three coverage gates).
+- Acceptance (verifier-confirmed on main post-merge): `go test ./... -race -count=1 -timeout 600s` all-green; `make test-state-redesign` all four gates green (statestore 95.7 %, revision 90.3 %, executionstate 90.0 %, triggerctx passes); `go vet ./...` clean. The `internal/revision` floor had been silently breached at 84.9 % on main tip pre-M6 (gate ran without `-race` under prior Makefile); M6 restores the documented ≥ 90 % floor by adding the M6-coverage unit tests **without lowering any threshold**.
+- Risk Notes: `step05_legacy_plan_mirror_present` strips the canonical `sha256:` prefix when constructing the expected mirror path because `writer.writeCompatibilityMirror` normalises through `normalizeLegacyChecksum` before persisting — codified in the test comment to prevent future confusion.
+- Spec proposals filed: none new.
+- Carry-forward (deferred per task-0021 §non-goals): MirrorModeHardlink debug-fold decision; RunnerHooks.AfterStateUpdate async-mirror evaluation; `--persist-revision` flag wiring (Phase 2); Option B trigger-name resolver branch (`ai/proposals/task-0019-spec-update.md`); `--prune-legacy` (Phase 2 §6).
+- Unblocks: Phase 2 work and the deferred housekeeping list above. Next session re-scopes from the candidates documented in `ai/context/current.md`.
 
 ## Historical Notes
 
