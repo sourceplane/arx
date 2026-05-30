@@ -1,30 +1,23 @@
-No human input currently requested. Milestone M3 (`internal/revision`) is the
-active milestone. M3 PR-A landed on `main` at `7f1e53d` (PR #157, verified
-PASS via Task 0009 on 2026-05-30). M3 PR-B implementer (Task 0010) shipped on
-branch `impl/task-0010-m3-revision-prb` as PR **#158** — OPEN, MERGEABLE,
-mergeStateStatus CLEAN, head SHA `ec74af1`. Both required CI checks SUCCESS
-at log level (`CI / Orun Plan` run `26674136935`, `Harness dry-run guard`
-run `26674136948`).
+No human input currently requested. Milestone **M4** is fully closed:
 
-Current orchestrator decision (2026-05-30): emit **Task 0011 = M3 PR-B
-verifier** at `ai/tasks/task-0011-verifier.md`. Verifier validates Task 0010
-against `specs/orun-state-redesign/implementation-plan.md` Milestone M3 "Done
-when" criteria (≥ 90 % coverage, all 7 resolver branches with explicit
-`ResolveSource` assertions, compat-writes flag exercises both true and false
-paths), adjudicates three implementer decisions (Option A for `JobCount` =
-planner-supplied, `0` means "unknown"; resolver branch 3 fallthrough on
-`ErrNotFound` rather than bubble-up; `.orun/plans/latest.json` written via
-`statestore.Write` last-write-wins) — each accepted-with-Risk-Note OR via a
-single `ai/proposals/task-0010-spec-update.md`. Verifier inspects both
-required CI runs at log level and merges per the Verifier Merge Protocol on
-PASS.
+- M4 PR-A merged at `ed48633` (PR #159, verified PASS via Task 0013).
+- M4 PR-B merged at `d51e828` (PR #160, verified PASS via Task 0015 on
+  2026-05-30T07:18:02Z). Branch `impl/task-0014-m4-executionstate-prb`
+  deleted. CI on final head SHA: `CI / Orun Plan` run `26677835038` and
+  `orun remote-state conformance / Harness dry-run guard` run `26677835039`,
+  both SUCCESS at log level.
 
-Next implementer after Task 0011 (assuming PASS) = **Task 0012 = M4 PR-A
-implementer** scoping `internal/executionstate` (`ExecutionRun`,
-`RunnerProfile`, `ExecSummary`, `NextExecutionKey`, `SanitizeExecID`,
-`CreateExecution`, `UpdateSnapshot`, `MarkTerminal`) and the runner bridge
-(`Bridge{Store,LegacyRoot,MirrorMode}`, `MirrorRunnerOutput` hardlink with
-copy fallback, `bridge-mirror-failed` event), plus `ResolveExecution` legacy
-fallback to `.orun/executions/` scan, per
-`specs/orun-state-redesign/implementation-plan.md` §M4. Suggested PR scope
-1–2 PRs; the bridge is naturally separable.
+Coverage (post-merge): `internal/executionstate` 90.0% (exact floor),
+`internal/statestore` 95.7% (lifted from 95.4%), `internal/revision` 90.4%.
+Leaf-clean confirmed. No overreach into `cmd/orun` / `internal/state` /
+`internal/runner` / `internal/runbundle` in PR-B.
+
+Active milestone: **M5** (CLI rewire). Next emission per
+`specs/orun-state-redesign/implementation-plan.md` §M5 will be
+**Task 0016 = M5.a (`orun plan` rewire) implementer** when requested.
+Suggested PR scope: 1 PR covering `orun plan` only — keep `orun run`
+(M5.b), `orun status`/`logs`/`describe`/`get plans` (M5.c), and hidden
+`orun state migrate` (M5.d) out of scope. Branch base: `main` @ `d51e828`.
+
+No outstanding orchestrator questions; no blocked verifier or implementer
+work.

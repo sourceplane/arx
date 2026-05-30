@@ -133,4 +133,6 @@ Optional follow-up (low priority, flag with orchestrator):
 
 - **PR:** [#160](https://github.com/sourceplane/orun/pull/160) — `impl/task-0014-m4-executionstate-prb`.
 - **Pre-merge head SHA:** `8ad4c5c420c4e5ec387b897e25e8fff01a4b65bf`.
-- **Merge commit SHA:** _(populated post-merge below)_.
+- **Merge commit SHA:** `d51e828d0e55e6d5b6b369ad72575bcfe244a7e8` (squash-merged into `main` at `2026-05-30T07:18:02Z`).
+- **Branch:** deleted post-merge.
+- **Local main:** fast-forwarded to `d51e828`. `git status --short` clean.

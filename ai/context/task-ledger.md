@@ -703,6 +703,63 @@ history; reports/prompts are no longer present in the working tree.
    merges; Task 0016 = M5.a (`orun plan` rewire) implementer becomes the
    next emission.
 
+## Task 0015
+
+- Agent: Verifier
+- Prompt: `ai/tasks/task-0015-verifier.md`
+- Status: **verified PASS** on 2026-05-30
+- Implementation: PR **#160** on branch `impl/task-0014-m4-executionstate-prb`,
+  merged into `main` as squash commit `d51e828d0e55e6d5b6b369ad72575bcfe244a7e8`
+  ("Task 0014: M4 PR-B — internal/executionstate bridge + EXDEV fallback (#160)")
+  at 2026-05-30T07:18:02Z.
+- PR CI on final head SHA (after verifier-side commit `f94730e`):
+  - `CI / Orun Plan` — run `26677835038`, SUCCESS at log level (`orun plan`
+    invoked against `examples/intent.yaml`; legitimate empty-matrix
+    `0 components × 3 envs → 0 jobs`; plan artifact uploaded).
+  - `orun remote-state conformance / Harness dry-run guard` — run `26677835039`,
+    SUCCESS at log level (full `[guard] PASS:` battery: bash syntax,
+    foundation@dev.smoke ≥2 commands, api@dev.smoke ≥1 command, required
+    command/assertion markers, duplicate-claim helper PASS+FAIL,
+    status helper PASS+FAIL, exported env asserts).
+- Reports:
+  - Implementer: `ai/reports/task-0014-implementer.md` (146 lines)
+  - Verifier: `ai/reports/task-0015-verifier.md` (~140 lines)
+- Objective: validated Task 0014 / PR #160 against the Verifier Standard +
+  M4 "Done when" criteria; confirmed `bridge.go` correctness vs `design.md`
+  §5.1 / §M4, EXDEV fallback property test, additive `paths.go` helpers,
+  no overreach into `cmd/orun` / `internal/state` / `internal/runner` /
+  `internal/runbundle`, byte-identical PR-A surface.
+- Scope boundary: verification only (verifier report committed to PR branch
+  before merge; no production-code edits).
+- Coverage delta: `internal/executionstate` held at 90.0% (exact floor);
+  `internal/statestore` lifted to 95.7% (was 95.4%); `internal/revision`
+  unchanged at 90.4%. All gates green: `go build/vet`, `go test -race
+  ./...`, `make test-state-redesign`. Leaf-clean confirmed.
+- Adjudications (both accepted with Risk Notes; no spec proposal filed):
+  1. **`MirrorMode` trinary surface** (`Auto`/`Hardlink`/`Copy`). Auto is
+     zero value matching §M4 verbatim; Hardlink supports drift detection
+     and the EXDEV emission test; Copy pre-positions remote drivers.
+     Trinary surface is additive over the spec, not contradictory.
+     Renaming is non-breaking source-level.
+  2. **`bridge-mirror-failed` payload schema**
+     `{executionKey, revisionKey, legacyExecId, artifact, stage, mode, error}`
+     with `stage ∈ {read-source, read-dest, translate-dest, mkdir-dest,
+     remove-dest, link, copy}`. data-model.md §9 left it open; PR-B fixed
+     it in code. Schema is well-formed and additive-friendly. Risk Note:
+     pin in §9 during M5.b runner wiring before any second consumer
+     (metrics, `orun status`) lands.
+- Durable outcome: M4 milestone fully closed. `internal/executionstate`
+  feature-complete for Phase 1: model + writer (PR-A) + resolver-with-
+  legacy-fallback (PR-A) + bridge with hardlink-with-copy-fallback (PR-B).
+  Bridge ships with frozen `Bridge{Store, LegacyRoot, MirrorMode, Now}`
+  surface, portable EXDEV detection, structured `bridge-mirror-failed`
+  event emission, idempotent short-circuit on byte-equal destinations,
+  and seq=2 reservation for `execution-created`. Production-caller wiring
+  (runner → MirrorRunnerOutput, CLI rewire) is M5; resolver legacy-
+  fallback carries convergence burden until M5.b.
+- Expected next emission: **Task 0016 = M5.a (`orun plan` rewire)
+  implementer.** Branch base: `main` @ `d51e828`.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
