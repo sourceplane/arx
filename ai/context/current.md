@@ -78,8 +78,17 @@ PR #160 → `d51e828`. Bridge + EXDEV fallback. Verified PASS by Task 0015.
 PR #159 → `ed48633`. Verified PASS by Task 0013.
 
 ## Current Task
-**None active.** M5 closed. Awaiting orchestrator emission of Task 0021
-(M6 implementer).
+**Task 0021 — M6 implementer (E2E + property gates).** Scoped 2026-05-30.
+Branch base: `main` at `32d026f` (post-#164 housekeeping commit).
+Branch: `impl/task-0021-m6-e2e-and-property-gates`.
+Prompt: `ai/tasks/task-0021.md`.
+PR boundary: (1) `cmd/orun/state_e2e_test.go` — 15-step revision-first walk
+per `test-plan.md` §4 with one `t.Run` per step; (2)
+`internal/revision/keys_property_test.go` — rapid-driven revision-key
+uniqueness + collision-suffix correctness per §3.2; (3) statestore decode-
+strict concurrent property (or cite the existing equivalent in
+`local_prb_test.go`); (4) `Makefile` `test-state-redesign` extension: add
+`-race` and `TestStateE2E` invocation, keep coverage gates unchanged.
 
 ## Repo Checkpoint
 
@@ -92,7 +101,7 @@ PR #159 → `ed48633`. Verified PASS by Task 0013.
 | Last verified | 2026-05-30 (Task 0020, PR #164, merge `17ef788`) |
 | Active milestone | M6 (E2E + property gates) — pending |
 | Tasks completed | 0001, 0002, 0003, 0004, 0005, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0018, 0019, 0020 (18 total) |
-| Current task | _none — awaiting Task 0021 (M6) implementer emission_ |
+| Current task | **0021 (M6 implementer)** — scoped, ready to begin |
 
 ## Roadmap (M0 → M6)
 1. ✅ **M0 Foundation** — landed on main at `4ea1980` (PR #152).

@@ -930,6 +930,37 @@ history; reports/prompts are no longer present in the working tree.
 |- Spec proposals filed: none new. `ai/proposals/task-0019-spec-update.md` Option A is now implemented in this PR; Option B retained as queued source of truth for whoever picks up trigger-name resolver branch (foldable into M6 or standalone polish).
 |- Unblocks: **M6 — E2E + property gates** (Task 0021, to be emitted). Branch base: `main` at `17ef788`.
 
+## Task 0021 — M6 E2E + property gates
+
+- Agent: Implementer
+- Prompt: `ai/tasks/task-0021.md`
+- Status: scoped and ready to begin (2026-05-30)
+- Base: `main` at `32d026f`. Branch: `impl/task-0021-m6-e2e-and-property-gates`
+- Objective: Lock in Phase-1 correctness properties from `design.md` §9 as
+  permanent regression gates, and ship the end-to-end CLI walk that exercises
+  the full revision-first path through real fixtures.
+- Scope boundary: (1) `cmd/orun/state_e2e_test.go` — 15-step walk per
+  `test-plan.md` §4, one `t.Run` per step, Cobra programmatic invocation,
+  `internal/testfx/statefs.NewWorkspace` for isolation. (2)
+  `internal/revision/keys_property_test.go` — rapid-driven uniqueness +
+  collision-suffix correctness per §3.2. (3) Statestore decode-strict
+  concurrent property (or cite the existing equivalent in `local_prb_test.go`).
+  (4) `Makefile` `test-state-redesign` extension: add `-race` + `TestStateE2E`
+  invocation, keep coverage gates unchanged. In: tests + Makefile only. Out:
+  any production-code change to the four state packages or `cmd/orun`
+  commands; Option B trigger-name resolver; MirrorModeHardlink debug-fold;
+  RunnerHooks.AfterStateUpdate re-architecture; `--persist-revision` wiring;
+  coverage-threshold raises.
+- Acceptance: `go build ./...`, `go vet ./...`, `make test-state-redesign`,
+  `go test -race ./... -count=1 -timeout 300s`, `go test -race -run
+  TestStateE2E -count=3` all exit 0; coverage gates (statestore ≥95,
+  revision ≥90, executionstate ≥90, triggerctx ≥90) hold; CI required
+  checks `Orun Plan` + `Harness dry-run guard` GREEN on PR.
+- Expected outcome: M6 closes the spec's regression-gate work; future
+  drift in trigger-key/revision-key/exec-key/statestore-atomicity/CLI-walk
+  invariants is caught by `go test`. Closes the orun-state-redesign Phase 1
+  spec.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
