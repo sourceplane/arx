@@ -85,4 +85,4 @@ M3 closes on this merge. Next is **Task 0012 = M4 implementer** scoping `interna
 ## PR Number + Merge SHA
 
 - **PR**: #158
-- **Merge commit SHA**: _to be filled in after squash-merge_
+- **Merge commit SHA**: `bfc2ae6` (squash-merged into `main`; branch `impl/task-0010-m3-revision-prb` deleted; local `main` fast-forwarded; `git status --short` clean)

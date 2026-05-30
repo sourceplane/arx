@@ -1,25 +1,24 @@
 {
   "goal": "Phase 1 trigger-first revision-first local state model for Orun",
   "current_task": "0011",
-  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010"],
+  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011"],
   "repo_health": "green",
-  "next_focus": "orun-state-redesign-M3-PR-B-verifier",
+  "next_focus": "orun-state-redesign-M4-executionstate-implementer",
   "active_spec": "specs/orun-state-redesign",
-  "active_milestone": "M3",
+  "active_milestone": "M4",
   "secondary_specs": [
     ".kiro/specs/orun-tui-cockpit",
     ".kiro/specs/github-artifacts"
   ],
   "last_verified": "2026-05-30",
   "waiting_for_input": "false",
-  "task_agent": "/ai/tasks/task-0011-verifier.md",
+  "task_agent": "/ai/reports/task-0011-verifier.md",
   "notes": [
-    "Task 0010 (M3 PR-B implementer) DELIVERED on branch impl/task-0010-m3-revision-prb → PR #158 OPEN, MERGEABLE, mergeStateStatus CLEAN, head SHA ec74af1. Both required CI checks SUCCESS at log level (CI / Orun Plan run 26674136935, Harness dry-run guard run 26674136948). Diff: 12 files, +1966 / -22 — new internal/revision/{errors,legacy,manifest,resolver}.go and tests {manifest,resolver,writer_compat,coverage_extra}_test.go; edits to internal/revision/{model,writer}.go (added ManifestKind; compat-mirror body + Config.JobCount + summaryFromScope plumbing). Implementer report ai/reports/task-0010-implementer.md.",
-    "Implementer decisions captured in report and to be adjudicated by Task 0011 verifier: (1) JobCount Option A — planner-supplied via Config.JobCount, persisted exactly, 0 means 'unknown'; (2) Resolver branch 3 (revision-key) on ErrNotFound FALLS THROUGH rather than bubbles, on the rationale that a regex-matching arg can also be a known named ref or legacy hash; only returns ErrAmbiguousArg if branches 4–7 also fail; (3) branch 5 length floor planShortHashLen=8 (shorter hex falls through to branch 7); (4) compat mirror writes .orun/plans/<hash>.json via CreateIfAbsent (ErrExists treated as idempotent success) and .orun/plans/latest.json via Write (last-write-wins per compatibility-and-migration.md §2); (5) typed sentinels ErrAmbiguousArg, ErrComponentRunUnchanged live in internal/revision/errors.go (resolver-shaped; no analogue at statestore byte layer).",
-    "Coverage on PR #158: internal/revision = 90.4 % (gate ≥ 90 %); internal/statestore = 96.1 % (M2 floor preserved). go test ./... and make test-state-redesign green; go mod tidy clean. Note: PR-A measured 93.3 % on a smaller surface — do NOT mechanically require ≥ 93.3 % on the wider PR-B surface; the gate is 90 %.",
-    "Next task = **Task 0011 = M3 PR-B verifier**. Validate against M3 'Done when' checklist (≥ 90 % coverage, all 7 resolver branches with explicit ResolveSource assertions, compat-writes flag exercises both true and false paths, key uniqueness/collision property test from PR-A still green). Verifier MUST adjudicate the three implementer decisions inline (Risk Notes) OR file a single ai/proposals/task-0010-spec-update.md.",
-    "After Task 0011 PASS + PR #158 merge, M3 closes. Next milestone = **M4 — internal/executionstate + runner bridge** per specs/orun-state-redesign/implementation-plan.md §M4 (model.go ExecutionRun/RunnerProfile/ExecSummary; writer.go NextExecutionKey/SanitizeExecID/CreateExecution/UpdateSnapshot/MarkTerminal; bridge.go Bridge{Store,LegacyRoot,MirrorMode} + MirrorRunnerOutput hardlink-with-copy-fallback; resolver.go ResolveExecution with legacy fallback). Suggested PR scope 1–2 PRs.",
-    "Task 0009 (M3 PR-A verifier) verified PASS on 2026-05-30, PR #157 squash-merged → main commit 7f1e53d. Task 0007 + 0008 closed M3 PR-A; claim-first ordering deviation from cli-surface.md §1.2 step-7 ACCEPTED in-place (no proposal filed). Risk Notes carried forward from PR-A: stateStoreVersionPath() lives in internal/revision (deferred relocation to M5).",
+    "Task 0011 (M3 PR-B verifier) verified PASS on 2026-05-30. PR #158 squash-merged into main as commit bfc2ae6 — feat(revision): land M3 PR-B — manifest, resolver, compat-mirror, JobCount. Branch impl/task-0010-m3-revision-prb deleted; local main fast-forwarded; git status --short clean.",
+    "Verifier adjudications (all accepted with Risk Notes; no spec proposal filed): (1) Branch-3 ErrNotFound fallthrough is paranoia — revisionKeyPattern requires rev- prefix, cannot collide with branches 4/5/6 in practice. (2) JobCount Option A — Config.JobCount=0 ambiguity between 'empty plan' and 'unknown' persists; M5 callers will encode real counts. (3) Compat-mirror latest.json via store.Write — last-write-wins, byte-identical, naturally idempotent. NB: implementer report claimed checksum mirror uses CreateIfAbsent with ErrExists-as-success; code actually uses Write. Behavior matches spec; report prose drift only.",
+    "Coverage on PR #158 final: internal/revision=90.4% (gate ≥90%); internal/statestore=96.1% (M2 floor preserved). All quality gates green: go build/vet, go test -race ./..., make test-state-redesign.",
+    "M3 milestone CLOSES with this merge. Next milestone = **M4 — internal/executionstate + runner bridge** per specs/orun-state-redesign/implementation-plan.md §M4. The PR-B-shipped UpdateLatestExecutionSummary helper gets its first real caller in M4 (executionstate writer). Suggested PR scope: 1–2 PRs covering model.go (ExecutionRun/RunnerProfile/ExecSummary), writer.go (NextExecutionKey/SanitizeExecID/CreateExecution/UpdateSnapshot/MarkTerminal), bridge.go (Bridge{Store,LegacyRoot,MirrorMode} + MirrorRunnerOutput hardlink-with-copy-fallback), resolver.go (ResolveExecution with legacy fallback per compat §4).",
+    "Risk-Notes carried into M4: (a) UpdateLatestExecutionSummary has zero in-tree callers until M4 wires it; first real-load test of CAS + idempotent-short-circuit dance is M4. (b) WriteManifest overwrites unconditionally via store.Write — corrupted on-disk manifest silently replaced on next WriteRevision. (c) JobCount=0 ambiguity (see above). (d) implementer-report-vs-code drift on latest.json sentinel handling — flagged for the implementer's awareness, non-blocking.",
     "Persistent local environment quirk (NOT a regression): kiox -- orun plan --changed --intent examples/intent.yaml occasionally fails on composition-cache resolution. Reproduces sporadically since Task 0001 on main and PR branches. CI passes the same invocation; CI is authoritative."
   ]
 }
