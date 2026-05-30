@@ -159,6 +159,24 @@ func LegacyExecutionDocPath(execID string) string {
 // the executionstate resolver's legacy-fallback branch.
 func LegacyExecutionsRoot() string { return "executions" }
 
+// LegacyExecutionFilePath returns "executions/<execID>/<name>" — a single
+// legacy artifact under the per-execution legacy directory. Phase 1 only
+// uses name in {"state.json", "metadata.json"} via the bridge; design.md §6
+// flags both as `# bridge-mirrored`. The helper exists here (not in
+// internal/executionstate) so the bridge stays free of "executions/" string
+// literals per the M4 PR-B path-policy constraint.
+func LegacyExecutionFilePath(execID, name string) string {
+	return LegacyExecutionDir(execID) + "/" + joinComponents(name)
+}
+
+// ExecutionFilePath returns
+// "revisions/<revKey>/executions/<execKey>/<name>" — a single artifact under
+// the new revision-first execution directory. The bridge uses this for the
+// state.json / metadata.json mirror destinations (design.md §6).
+func ExecutionFilePath(revKey, execKey, name string) string {
+	return ExecutionDir(revKey, execKey) + "/" + joinComponents(name)
+}
+
 // ExecutionDocPath returns
 // "revisions/<revKey>/executions/<execKey>/execution.json".
 func ExecutionDocPath(revKey, execKey string) string {
