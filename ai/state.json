@@ -1,9 +1,9 @@
 {
   "goal": "Phase 1 trigger-first revision-first local state model for Orun",
-  "current_task": "0018",
-  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016"],
+  "current_task": "0019",
+  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0018"],
   "repo_health": "green",
-  "next_focus": "orun-state-redesign-M5b-orun-run-rewire-implementer",
+  "next_focus": "orun-state-redesign-M5c-orun-status-logs-describe-get-implementer",
   "active_spec": "specs/orun-state-redesign",
   "active_milestone": "M5",
   "secondary_specs": [
@@ -12,13 +12,14 @@
   ],
   "last_verified": "2026-05-30",
   "waiting_for_input": "false",
-  "task_agent": "/ai/reports/task-0016-verifier.md",
+  "task_agent": "/ai/reports/task-0018-verifier.md",
   "notes": [
-    "Task 0016 (M5.a `orun plan` rewire) verified PASS and merged on 2026-05-30. PR #161 squash-merged into main as commit 7a9c494 — `Task 0016: M5.a — orun plan rewire to revision-first layout`. orun plan now always resolves TriggerOccurrence via internal/triggerctx and persists via internal/revision.WriteRevision; metadata.trigger + metadata.revision embedded in plan.json; compat aliases under .orun/plans/ retained byte-identical; cli-surface.md §1.1 summary block (✓ Plan revision created / Revision / Trigger / Jobs / Path) emitted before the legacy detail line; -o/--output preserved as additive copy.",
-    "Coverage on PR #161 final: internal/statestore=95.7% (≥95% gate); internal/revision=90.4% (≥90% gate); internal/executionstate=90.0% (exact floor held — M5.a did not touch the package). All quality gates green: go build/vet, go test -race ./..., make test-state-redesign. Both required CI checks PASS at log level on final head SHA after verifier-side commit (Orun Plan run 26683860043; Harness dry-run guard run 26683860052).",
-    "M5.a closed cleanly: scope discipline held — only cmd/orun/main.go, internal/model/plan.go, internal/revision/legacy.go touched, plus tests + ai/ tracking. No edits to internal/runner / runbundle / state / executionstate. No spec drift; no proposals filed.",
-    "Next = **Task 0018 = M5.b implementer** per implementation-plan.md §M5.b. Scope: orun run rewire — resolve PlanRevision via internal/revision.ResolveRevision, materialize system.manual revision in-memory when none exists, create execution via internal/executionstate.CreateExecution, hook runner snapshot stream into Bridge.MirrorRunnerOutput, add --revision flag (skips resolution chain). Pin bridge-mirror-failed payload schema in data-model.md §9 before any second consumer. Scope EXCLUDES orun status/logs/describe (M5.c) and hidden orun state migrate (M5.d).",
-    "Risk Notes carried forward: (a) bridge-mirror-failed payload schema STILL un-pinned in data-model.md §9 — must pin in M5.b before any second consumer. (b) MirrorModeHardlink debug-fold decision deferred to M6. (c) emitFailure best-effort dropped events — M5.b should add stderr/metric fallback. (d) Event-sequence retry budget of 32 acceptable for single-writer Phase 1; re-evaluate when remote drivers come online. (e) internal/executionstate coverage at exact 90.0% floor — must not regress in M5.b/c/d.",
+    "Task 0018 (M5.b `orun run` rewire) verified PASS and merged on 2026-05-30. PR #162 squash-merged into main as commit 59d06f3 — `M5.b: rewire orun run onto the revision-first execution path`. orun run now resolves PlanRevision via the seven-branch revision.ResolveRevision, synthesizes-and-re-resolves on a benign miss so a fresh orun run (no preceding orun plan) still lands a real on-disk triplet, persists ExecutionRun via executionstate.CreateExecution, mirrors runner state.json/metadata.json via Bridge.MirrorRunnerOutput (mode Auto, hardlink → copy fallback on EXDEV per design.md §11) on every runner tick via the new RunnerHooks.AfterStateUpdate hook, and flips execution to terminal status with summary counts on runner return. --revision <key> flag added (cli-surface.md §2.3) that short-circuits the resolution chain. data-model.md §9.1 bridge-mirror-failed event payload schema pinned (closes risk note carried forward from M5.a).",
+    "Coverage on PR #162 final: internal/statestore=95.7% (≥95% gate); internal/revision=90.4% (≥90% gate); internal/executionstate=90.0% (≥90% gate, exact floor held — M5.b touched the package only via API consumption). All quality gates green: go build/vet, go test -race ./..., make test-state-redesign. Both required CI checks PASS at log level on final head SHA (CI / Orun Plan 45s; Harness dry-run guard 12s). 5 matrix legs SKIPPED (empty matrix at M5.b — same shape as M5.a #161).",
+    "M5.b closed cleanly: scope discipline held — only cmd/orun/command_run.go, new cmd/orun/command_run_revision*.go, internal/runner/runner.go (AfterStateUpdate hook only), specs/orun-state-redesign/data-model.md, plus tests + ai/ tracking. No edits to internal/state / internal/runbundle / internal/executor / internal/executionstate (only API consumption). No spec drift; no proposals filed.",
+    "Phase 1 reservations honoured (NOT wired in M5.b): --persist-revision flag (synthesize-fallback covers the gap), Reason=rerun/retry/migration (only direct-run emitted from this path).",
+    "Next = **Task 0019 = M5.c implementer** per implementation-plan.md §M5.c. Scope: orun status / logs / describe / get rewire — read execution lifecycle from revisions/<key>/executions/<execKey>/, fall back to legacy .orun/executions/<id>/ via resolver legacy-fallback path, surface bridge-mirror-failed events on stderr/metrics, expose new triplet shape in describe output. Scope EXCLUDES hidden orun state migrate (M5.d).",
+    "Risk Notes carried forward (updated): (a) ~~bridge-mirror-failed payload schema un-pinned~~ CLOSED in M5.b. (b) MirrorModeHardlink debug-fold decision deferred to M6. (c) emitFailure best-effort dropped events still un-instrumented — M5.c should add stderr/metric fallback. (d) Event-sequence retry budget of 32 acceptable for single-writer Phase 1; re-evaluate when remote drivers come online. (e) internal/executionstate coverage at exact 90.0% floor — must not regress in M5.c/d. (f) NEW: RunnerHooks.AfterStateUpdate fires bridge mirror synchronously on the runner goroutine — on slow filesystems this may extend per-tick wall time; M5.c may want async buffer if real workloads regress.",
     "Persistent local environment quirk (NOT a regression): kiox -- orun plan --changed --intent examples/intent.yaml occasionally fails on composition-cache resolution. Reproduces sporadically on main. CI is authoritative."
   ]
 }

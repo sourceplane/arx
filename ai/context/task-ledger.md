@@ -822,6 +822,82 @@ history; reports/prompts are no longer present in the working tree.
    into `Bridge.MirrorRunnerOutput`, add `--revision` flag, pin
    `bridge-mirror-failed` payload schema in `data-model.md` §9).
 
+## Task 0018
+
+|- Agent: Implementer + Verifier (single-pass closure)
+|- Prompt: `ai/tasks/task-0018.md`
+|- Implementer report: `ai/reports/task-0018-implementer.md`
+|- Verifier report: `ai/reports/task-0018-verifier.md`
+|- Status: **verified PASS, merged 2026-05-30T13:42:02Z**
+|- Milestone: M5.b — `orun run` rewire onto revision-first execution path
+|- Implementation: PR **#162** on `impl/task-0018-m5b-orun-run-rewire`,
+   squash-merged to `main` as `59d06f3` "M5.b: rewire `orun run` onto the
+   revision-first execution path (#162)". Head SHA at merge `e5dd580`.
+|- PR CI: `CI / Orun Plan` PASS (45s); `Harness dry-run guard` PASS (12s).
+   Both required checks PASS at log level on final head SHA. 5 matrix
+   legs SKIPPED (empty matrix at M5.b — same shape as M5.a #161).
+|- Diff stat: 5 files changed, +757 / -0. New `cmd/orun/command_run_revision.go`
+   (365 LOC) houses `setupRevisionExecution` / `installRevisionHooks` /
+   `finalizeRevisionExecution` / `synthesizeRevisionForRun` /
+   `printRevisionRunSummary`. New `cmd/orun/command_run_revision_test.go`
+   (298 LOC) covers synth round-trip, happy-path setup+finalize,
+   failed-runner path, `--revision` short-circuit, `--exec-id` plumbing,
+   nil-rx no-op, absolute store-root invariant, defensive nil-plan /
+   empty-execID rejection. Modified `cmd/orun/command_run.go` (register
+   `--revision` flag, wire setup/finalize around `r.Run(plan)`),
+   `internal/runner/runner.go` (add `RunnerHooks.AfterStateUpdate` fired
+   from `updateState` after `SaveState`),
+   `specs/orun-state-redesign/data-model.md` (pin §9.1
+   `bridge-mirror-failed` event payload schema).
+|- Coverage: `internal/statestore` 95.7 % (≥95 %); `internal/revision`
+   90.4 % (≥90 %); `internal/executionstate` 90.0 % (≥90 %, exact floor
+   held — M5.b touched the package only via API consumption).
+|- Objective: rewire `orun run` to the canonical revision-first flow per
+   `cli-surface.md` §2 — resolve `PlanRevision` via the seven-branch
+   `ResolveRevision` (latest / file / revision-key / named-ref /
+   legacy-hash / component-name / ambiguous), synthesize-and-re-resolve
+   when the resolver returns a benign miss so a fresh `orun run` (no
+   preceding `orun plan`) still lands a real on-disk triplet, persist an
+   `ExecutionRun` via `internal/executionstate.CreateExecution`, mirror
+   runner `state.json`/`metadata.json` via `Bridge.MirrorRunnerOutput`
+   (mode `Auto`: hardlink → copy fallback on EXDEV per design.md §11) on
+   every runner tick, mark the execution terminal with summary counts on
+   runner return, register `--revision <key>` flag (cli-surface.md §2.3)
+   that short-circuits the resolution chain, and pin
+   `bridge-mirror-failed` event payload schema in `data-model.md` §9.1.
+|- Scope boundary (in): `cmd/orun/command_run.go` + new
+   `cmd/orun/command_run_revision*.go` + minimal runner-snapshot bridge
+   glue in `internal/runner/runner.go` (`AfterStateUpdate` hook only) +
+   `data-model.md` §9.1 schema pin. (out, held): `orun status` / `logs`
+   / `describe` / `get` (M5.c), hidden `orun state migrate` (M5.d),
+   `--persist-revision` flag (Phase 1 reservation, synthesize-fallback
+   covers the gap), Reason="rerun"/"retry"/"migration" (only
+   "direct-run" emitted from this path).
+|- Durable outcome on main: `orun run` produces canonical execution
+   layout under `revisions/<key>/executions/<execKey>/`
+   (`execution.json` with `status`, `reason="direct-run"`, `summary`
+   counts, populated `revisionId`/`triggerId` ULIDs,
+   `originalKey=<legacyExecID>`; `state.json` + `metadata.json` mirrored
+   per tick from `.orun/executions/<legacyExecID>/`;
+   `events/00000000000000000001-execution-created.json` written on
+   creation), and updates `refs/latest-execution.json`. `--dry-run` and
+   remote-state branches NOT wired (lifecycle owned upstream). Final
+   summary block prints Revision / Execution / Path lines per
+   cli-surface.md §1.1, matching the M5.a `orun plan` shape.
+|- Verifier adjudications: scope discipline held (no overreach into
+   `internal/state` / `internal/runbundle` / `internal/executor`; only
+   `RunnerHooks.AfterStateUpdate` field added to runner package); no
+   spec proposals filed; risk note "bridge-mirror-failed payload schema
+   un-pinned" CLOSED in this task; new risk noted: bridge mirror runs
+   synchronously inside `updateState` on the runner goroutine — may
+   want async buffer in M5.c if real workloads regress.
+|- Unblocks: **Task 0019 = M5.c `orun status / logs / describe / get`
+   rewire** (read execution lifecycle from
+   `revisions/<key>/executions/<execKey>/`, fall back to legacy
+   `.orun/executions/<id>/` via resolver legacy-fallback path, surface
+   `bridge-mirror-failed` events on stderr/metrics, expose new triplet
+   shape in describe output).
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
