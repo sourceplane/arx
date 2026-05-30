@@ -1,9 +1,9 @@
 {
   "goal": "Phase 1 trigger-first revision-first local state model for Orun",
-  "current_task": "0011",
-  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011"],
+  "current_task": "0014",
+  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013"],
   "repo_health": "green",
-  "next_focus": "orun-state-redesign-M4-executionstate-implementer",
+  "next_focus": "orun-state-redesign-M4-PRB-bridge-implementer",
   "active_spec": "specs/orun-state-redesign",
   "active_milestone": "M4",
   "secondary_specs": [
@@ -12,13 +12,13 @@
   ],
   "last_verified": "2026-05-30",
   "waiting_for_input": "false",
-  "task_agent": "/ai/reports/task-0011-verifier.md",
+  "task_agent": "/ai/tasks/task-0014.md",
   "notes": [
-    "Task 0011 (M3 PR-B verifier) verified PASS on 2026-05-30. PR #158 squash-merged into main as commit bfc2ae6 — feat(revision): land M3 PR-B — manifest, resolver, compat-mirror, JobCount. Branch impl/task-0010-m3-revision-prb deleted; local main fast-forwarded; git status --short clean.",
-    "Verifier adjudications (all accepted with Risk Notes; no spec proposal filed): (1) Branch-3 ErrNotFound fallthrough is paranoia — revisionKeyPattern requires rev- prefix, cannot collide with branches 4/5/6 in practice. (2) JobCount Option A — Config.JobCount=0 ambiguity between 'empty plan' and 'unknown' persists; M5 callers will encode real counts. (3) Compat-mirror latest.json via store.Write — last-write-wins, byte-identical, naturally idempotent. NB: implementer report claimed checksum mirror uses CreateIfAbsent with ErrExists-as-success; code actually uses Write. Behavior matches spec; report prose drift only.",
-    "Coverage on PR #158 final: internal/revision=90.4% (gate ≥90%); internal/statestore=96.1% (M2 floor preserved). All quality gates green: go build/vet, go test -race ./..., make test-state-redesign.",
-    "M3 milestone CLOSES with this merge. Next milestone = **M4 — internal/executionstate + runner bridge** per specs/orun-state-redesign/implementation-plan.md §M4. The PR-B-shipped UpdateLatestExecutionSummary helper gets its first real caller in M4 (executionstate writer). Suggested PR scope: 1–2 PRs covering model.go (ExecutionRun/RunnerProfile/ExecSummary), writer.go (NextExecutionKey/SanitizeExecID/CreateExecution/UpdateSnapshot/MarkTerminal), bridge.go (Bridge{Store,LegacyRoot,MirrorMode} + MirrorRunnerOutput hardlink-with-copy-fallback), resolver.go (ResolveExecution with legacy fallback per compat §4).",
-    "Risk-Notes carried into M4: (a) UpdateLatestExecutionSummary has zero in-tree callers until M4 wires it; first real-load test of CAS + idempotent-short-circuit dance is M4. (b) WriteManifest overwrites unconditionally via store.Write — corrupted on-disk manifest silently replaced on next WriteRevision. (c) JobCount=0 ambiguity (see above). (d) implementer-report-vs-code drift on latest.json sentinel handling — flagged for the implementer's awareness, non-blocking.",
+    "Task 0013 (M4 PR-A verifier) verified PASS on 2026-05-30. PR #159 squash-merged into main as commit ed48633 — feat(executionstate): land M4 PR-A — internal/executionstate model + writer + resolver. internal/executionstate is leaf-clean (no reach into cmd/orun, internal/state, internal/runner, internal/runbundle); revision.UpdateLatestExecutionSummary now has its first real callers (CreateExecution.finalizeExecution + MarkTerminal) and the CAS + idempotent-short-circuit dance is exercised under -race.",
+    "Coverage on PR #159 final: internal/executionstate=90.0% (exact floor, gate ≥90%); internal/revision=90.4% (M3 floor preserved); internal/statestore=95.4% (M2 floor preserved). All quality gates green: go build/vet, go test -race ./..., make test-state-redesign. Both required CI checks SUCCESS at log level (CI / Orun Plan run 26675724704; Harness dry-run guard run 26675724720).",
+    "Verifier adjudications (accepted with Risk Notes; no spec proposal filed): (1) Manifest required for UpdateLatestExecutionSummary — implementer surfaces ErrNotFound loudly when called against a revision missing manifest.json; conservative-on-unknowns posture matches revision/writer.go style; carry-forward to M5 to ensure WriteRevision+WriteManifest precede CreateExecution. (2) Legacy-execution literal defaults (triggerKey=system.migrated, Reason=migration, Status=completed default) — defensible read of compat §4 but not strictly normative; pin these literals when migration command lands in M5/Phase 2. (3) R-002 ExecID shape (gh-{run_id}-{attempt}-{sha}) round-trips identity through SanitizeExecID — runbundle compat closed.",
+    "M4 PR-A milestone HALF-CLOSED with this merge. Next = **Task 0014 = M4 PR-B implementer** per implementation-plan.md §M4. Scope: internal/executionstate/bridge.go (Bridge{Store, LegacyRoot, MirrorMode} + MirrorRunnerOutput) with hardlink-with-copy-fallback, EXDEV-injection test seam, bridge-mirror-failed event emission, idempotent re-mirror. Coverage floor stays ≥90% (PR-B should organically lift it above the exact floor PR-A landed at). Production runner wiring is OUT OF SCOPE — M5 owns CLI rewire. M4 fully closes when Task 0015 (PR-B verifier) PASSes.",
+    "Risk-Notes carried into M4 PR-B: (a) coverage at exact 90.0% floor — small refactors that delete a covered branch could trip the gate; PR-B is expected to lift the floor. (b) Manifest-required-for-summary contract pinning deferred to M5/Phase 2 (not blocking PR-B). (c) Legacy-execution literal-defaults normativity in compat §4 deferred to migration-command landing. (d) Property test TestNextExecutionKey_MonotonicityUnderConcurrency is ~30s under -race — acceptable now but flag for -short skip if it grows.",
     "Persistent local environment quirk (NOT a regression): kiox -- orun plan --changed --intent examples/intent.yaml occasionally fails on composition-cache resolution. Reproduces sporadically since Task 0001 on main and PR branches. CI passes the same invocation; CI is authoritative."
   ]
 }

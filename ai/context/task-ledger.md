@@ -553,6 +553,156 @@ history; reports/prompts are no longer present in the working tree.
 |- Expected outcome: M3 closed; next implementer = Task 0012 = M4 PR-A
    (`internal/executionstate` model + writer; bridge optionally separable).
 
+## Task 0012
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0012.md`
+|- Status: **implemented and merged via PR #159** (2026-05-30T06:14:21Z, main commit `ed48633`)
+|- Milestone: M4 — `internal/executionstate` (PR-A: model + writer + resolver)
+|- Branch: `impl/task-0012-m4-executionstate-pra` @ `8a0c409` (parent `2c239d7`)
+|- Objective: open M4 by shipping the leaf-clean `internal/executionstate`
+   package — `model.go` (`ExecutionRun`/`RunnerProfile`/`ExecSummary` byte-stable
+   per data-model §5), `writer.go` (`NextExecutionKey`, `SanitizeExecID`,
+   `CreateExecution`, `UpdateSnapshot`, `MarkTerminal`, `finalizeExecution`,
+   `updateRevisionSummary`), and `resolver.go` (seven-branch ladder with legacy
+   `.orun/executions/` fallback). First real callers of
+   `revision.UpdateLatestExecutionSummary` wired through the writer.
+|- Scope boundary: `internal/executionstate/{model,writer,resolver,internal,
+   *_test}.go` (new), additive helpers in `internal/statestore/paths.go`
+   (`ExecutionsDir`, `ExecutionDocPath`, `ExecutionIndex*`, `LegacyExecution*`,
+   `EventPath`, `SnapshotPath`), `Makefile` coverage gate. NO `bridge.go` (M4
+   PR-B), NO `cmd/orun`, NO `internal/state`, NO `internal/runner`, NO
+   `internal/runbundle`, NO `--persist-revision`, NO CLI rewire (M5 owns).
+|- Acceptance: ≥90% on `internal/executionstate`; ≥90% on `internal/revision`
+   preserved; ≥95% on `internal/statestore` preserved; `NextExecutionKey`
+   monotonicity property test under N=100 concurrent `CreateExecution`;
+   resolver branch-5 (legacy `.orun/executions/<arg>/execution.json` direct read)
+   and branch-6 (legacy newest-mtime scan) both tested via synthesized legacy
+   trees; `internal/testfx/statefs.AssertJSONFile` JSON-stability test on
+   `ExecutionRun`; `revision.UpdateLatestExecutionSummary` first-caller wired
+   through `finalizeExecution` + `MarkTerminal` with CAS retry + idempotent-
+   short-circuit covered.
+|- Implementer report: `ai/reports/task-0012-implementer.md` — coverage
+   `internal/executionstate` **90.0 %** (exact floor), `internal/revision`
+   **90.4 %**, `internal/statestore` **95.4 %**. PR Number: **159**.
+|- Implementer assumptions (to be adjudicated by Task 0013 verifier):
+   (1) M3 callers writing a revision but not a manifest is treated as an
+   error — loud `ErrNotFound` surfacing on `UpdateLatestExecutionSummary`
+   rather than silent no-op. (2) Legacy executions with no `revisionKey`
+   carry `triggerKey="system.migrated"`, `Reason="migration"`,
+   `Status="completed"` default per compat §4 projection.
+|- Expected outcome: M4 PR-A closes on Task 0013 PASS + PR #159 merge; M4
+   PR-B (`bridge.go` + `MirrorRunnerOutput`) becomes Task 0014.
+
+## Task 0013
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0013-verifier.md`
+|- Status: **verified PASS and merged via PR #159** (2026-05-30T06:14:21Z, main commit `ed48633`)
+|- Verified: PR **#159** (`impl/task-0012-m4-executionstate-pra` @ `8a0c409` →
+   `ed48633` after squash)
+|- Milestone: M4 — `internal/executionstate` (PR-A verification)
+|- Objective: validate Task 0012 against the M4 "Done when" criteria (≥90%
+   coverage on `internal/executionstate`, NextExecutionKey monotonicity property
+   under N=100 concurrent calls, resolver legacy-fallback against synthesized
+   `.orun/executions/`, leaf-clean invariant); adjudicate the two implementer
+   assumptions inline OR via `ai/proposals/task-0012-spec-update.md`; inspect
+   both required CI runs at log level; merge per the Verifier Merge Protocol.
+|- Scope boundary: verification only. Verifier committed only
+   `ai/reports/task-0013-verifier.md` to the PR branch. No production-code
+   edits, no spec edits, no proposal filed.
+|- Verifier outcome (2026-05-30):
+   - Result: **PASS**.
+   - Coverage: `internal/executionstate` 90.0 % (exact gate ≥90%);
+     `internal/revision` 90.4 % (preserved); `internal/statestore` 95.4 %
+     (preserved).
+   - Local quality gates: `go build ./...`, `go vet ./...`,
+     `go test -race -count=1 ./...` (incl. `internal/executionstate` 45.9 s
+     no DATA RACE), `make test-state-redesign`,
+     `TestNextExecutionKey_MonotonicityUnderConcurrency` (PASS in 30.47 s),
+     resolver branch-5/6 legacy-fallback tests (both PASS),
+     `go list -deps ./internal/executionstate` (leaf-clean confirmed: zero
+     hits on `cmd/orun|internal/state$|internal/runner|internal/runbundle`),
+     no production `.orun/` literal strings — all paths via
+     `internal/statestore/paths.go`.
+   - CI at log level: `CI / Orun Plan` run `26675724704` (job `78626951236`,
+     completed 2026-05-30T05:30:17Z); `Harness dry-run guard` run
+     `26675724720` (job `78626951221`, completed 2026-05-30T05:29:47Z). Five
+     matrix legs SKIPPED legitimately (empty matrix at M4 PR-A — same shape
+     as #152/#155–#158).
+   - Diff audit: PR boundaries clean — no overreach into `cmd/orun`,
+     `internal/state`, `internal/runner`, `internal/runbundle`. No
+     `bridge.go` leakage. Public surface audit clean — no accidental
+     over-export.
+   - R-002 ExecID compat: `SanitizeExecID("gh-{run_id}-{attempt}-{sha}")`
+     round-trips identity (alphabet-clean — no projection); compatible with
+     `internal/runbundle` ExecIDs without further migration work. PR-B can
+     accept GHA-shape `legacyExecID` directly.
+   - Manifest-required-for-summary adjudication: ACCEPTED in-place. Conservative-
+     on-unknowns posture matches `revision/writer.go` style; carry-forward
+     to M5 to ensure `WriteRevision`+`WriteManifest` precede `CreateExecution`
+     for the same `revKey`. **No spec proposal filed.**
+   - Legacy-execution literal-defaults adjudication: ACCEPTED as documented
+     fallback convention. Compat §4 prescribes `triggerType="system"`,
+     `triggerName="system.migrated"`, `source.workingTree="unknown"` literally
+     but does not normate the M4-projected `triggerKey` /`Reason` /`Status`
+     defaults. **No spec proposal filed in PR-A; carry-forward to M5/Phase 2
+     migration command landing.**
+   - Risk Notes carried forward: (a) coverage at exact 90.0% floor — small
+     refactors deleting covered branches could trip the gate; PR-B should
+     organically lift it. (b) Race-mode property test ~30s under -race —
+     acceptable now; flag for `-short` skip if it grows. (c) `kiox` local
+     skip — no top-level `intent.yaml`; CI's `Orun Plan` and `Harness dry-run
+     guard` cover the surface authoritatively.
+|- Reports: implementer `ai/reports/task-0012-implementer.md`; verifier
+   `ai/reports/task-0013-verifier.md`.
+|- Durable outcome on `main`: `internal/executionstate` package shipped — typed
+   model byte-matching `data-model.md` §5; writer with `NextExecutionKey` /
+   `SanitizeExecID` / `CreateExecution` / `UpdateSnapshot` / `MarkTerminal`;
+   resolver with seven-branch ladder + legacy fallback; first real callers of
+   `revision.UpdateLatestExecutionSummary` wired with CAS + idempotent-short-
+   circuit; coverage gate ≥90% on `internal/executionstate` enforced; leaf-
+   clean imports preserved; additive `internal/statestore/paths.go` helpers.
+|- Next: Task 0014 = M4 PR-B implementer (`bridge.go` + `MirrorRunnerOutput`).
+
+## Task 0014
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0014.md`
+|- Status: scoped and ready to begin (2026-05-30)
+|- Milestone: M4 — `internal/executionstate` + runner bridge (PR-B; closes M4)
+|- Branch (to be created): `impl/task-0014-m4-executionstate-prb` from `main` @ `ed48633`
+|- Objective: ship `internal/executionstate/bridge.go` —
+   `Bridge{Store, LegacyRoot, MirrorMode}` plus
+   `MirrorRunnerOutput(ctx, execKey, revKey, legacyExecID)` with hardlink-with-
+   copy-fallback, EXDEV-injection test seam, `bridge-mirror-failed` event
+   emission per `data-model.md` §9, and idempotent re-mirror semantics. Wire
+   exercised through tests only — no production runner integration in this PR.
+|- Scope boundary: `internal/executionstate/bridge.go` (+ tests), `Makefile`
+   if gate text changes, additive helpers in `internal/statestore/paths.go`
+   only. NO `cmd/orun`, NO `internal/state`, NO `internal/runner`, NO
+   `internal/runbundle`, NO production-runner wiring (M5 owns), NO CLI rewire,
+   NO migration command (M5.d), NO `JobRun`/`JobAttempt`/`StepAttempt`
+   directories (`design.md` §4 reserved-but-empty in Phase 1).
+|- Acceptance: `internal/executionstate` ≥90% preserved (PR-B should lift the
+   exact-90.0%-floor PR-A landed at); `internal/revision` ≥90% preserved;
+   `internal/statestore` ≥95% preserved; hardlink success path test (single-FS
+   temp dir); forced-EXDEV cross-device fallback test via injected `linker`
+   seam (`os.Link` wrapper); `bridge-mirror-failed` event emission test with
+   payload consistent with `data-model.md` §9; idempotent re-mirror test;
+   leaf-clean invariant preserved (`go list -deps ./internal/executionstate`
+   shows no reach into `cmd/orun`/`internal/state`/`internal/runner`/
+   `internal/runbundle`); both required CI checks at minimum queued before
+   report close. No new error sentinels — reuse `statestore.ErrInvalid` /
+   `ErrNotFound` via `fmt.Errorf("%w: …", …)`.
+|- Open spec questions (implementer authorized to choose, verifier adjudicates):
+   `MirrorMode` enumeration (`MirrorModeHardlink`/`MirrorModeCopy`/
+   `MirrorModeAuto`?) and `bridge-mirror-failed` event payload field set
+   (data-model §9 names the event but does not enumerate every field).
+|- Expected outcome: M4 closes when Task 0015 (PR-B verifier) PASSes + PR
+   merges; Task 0016 = M5.a (`orun plan` rewire) implementer becomes the
+   next emission.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
