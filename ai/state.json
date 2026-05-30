@@ -1,9 +1,9 @@
 {
   "goal": "Phase 1 trigger-first revision-first local state model for Orun",
-  "current_task": "0016",
-  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015"],
+  "current_task": "0018",
+  "completed": ["0001", "0002", "0003", "0004", "0005", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016"],
   "repo_health": "green",
-  "next_focus": "orun-state-redesign-M5a-orun-plan-rewire-implementer",
+  "next_focus": "orun-state-redesign-M5b-orun-run-rewire-implementer",
   "active_spec": "specs/orun-state-redesign",
   "active_milestone": "M5",
   "secondary_specs": [
@@ -12,11 +12,13 @@
   ],
   "last_verified": "2026-05-30",
   "waiting_for_input": "false",
-  "task_agent": "/ai/tasks/task-0016.md",
+  "task_agent": "/ai/reports/task-0016-verifier.md",
   "notes": [
-    "Task 0016 emitted on 2026-05-30: M5.a implementer — rewire `orun plan` to revision-first layout via internal/triggerctx + internal/revision.WriteRevision, write compat aliases, embed metadata.trigger + metadata.revision, emit new summary block. Branch base: main @ d51e828. Branch name: impl/task-0016-m5a-orun-plan-rewire.",
-    "Scope strictly excludes M5.b (orun run + bridge wiring + --revision flag), M5.c (orun status/logs/describe/get plans), and M5.d (hidden orun state migrate). No internal/runner / internal/runbundle / internal/state / internal/executionstate edits in this PR. M4 closure preserved as-is.",
-    "Carry-forward from Task 0015 (still open against M5): (a) bridge-mirror-failed payload schema not yet pinned in data-model.md §9 — Task 0016 does not touch this; pin during M5.b runner wiring. (b) MirrorRunnerOutput still has no production callers until M5.b. (c) MirrorModeHardlink debug-fold decision deferred to M6. (d) emitFailure best-effort dropped events — M5.b should add stderr/metric fallback. (e) Event-sequence retry budget of 32 — re-evaluate when remote drivers come online. (f) internal/executionstate at exact 90.0% coverage floor — must not regress in M5.a even though that package is out of scope.",
-    "Persistent local environment quirk (NOT a regression): kiox -- orun plan --changed --intent examples/intent.yaml occasionally fails on composition-cache resolution. Reproduces sporadically on main. CI is authoritative. Implementer task includes this in Integration Notes."
+    "Task 0016 (M5.a `orun plan` rewire) verified PASS and merged on 2026-05-30. PR #161 squash-merged into main as commit 7a9c494 — `Task 0016: M5.a — orun plan rewire to revision-first layout`. orun plan now always resolves TriggerOccurrence via internal/triggerctx and persists via internal/revision.WriteRevision; metadata.trigger + metadata.revision embedded in plan.json; compat aliases under .orun/plans/ retained byte-identical; cli-surface.md §1.1 summary block (✓ Plan revision created / Revision / Trigger / Jobs / Path) emitted before the legacy detail line; -o/--output preserved as additive copy.",
+    "Coverage on PR #161 final: internal/statestore=95.7% (≥95% gate); internal/revision=90.4% (≥90% gate); internal/executionstate=90.0% (exact floor held — M5.a did not touch the package). All quality gates green: go build/vet, go test -race ./..., make test-state-redesign. Both required CI checks PASS at log level on final head SHA after verifier-side commit (Orun Plan run 26683860043; Harness dry-run guard run 26683860052).",
+    "M5.a closed cleanly: scope discipline held — only cmd/orun/main.go, internal/model/plan.go, internal/revision/legacy.go touched, plus tests + ai/ tracking. No edits to internal/runner / runbundle / state / executionstate. No spec drift; no proposals filed.",
+    "Next = **Task 0018 = M5.b implementer** per implementation-plan.md §M5.b. Scope: orun run rewire — resolve PlanRevision via internal/revision.ResolveRevision, materialize system.manual revision in-memory when none exists, create execution via internal/executionstate.CreateExecution, hook runner snapshot stream into Bridge.MirrorRunnerOutput, add --revision flag (skips resolution chain). Pin bridge-mirror-failed payload schema in data-model.md §9 before any second consumer. Scope EXCLUDES orun status/logs/describe (M5.c) and hidden orun state migrate (M5.d).",
+    "Risk Notes carried forward: (a) bridge-mirror-failed payload schema STILL un-pinned in data-model.md §9 — must pin in M5.b before any second consumer. (b) MirrorModeHardlink debug-fold decision deferred to M6. (c) emitFailure best-effort dropped events — M5.b should add stderr/metric fallback. (d) Event-sequence retry budget of 32 acceptable for single-writer Phase 1; re-evaluate when remote drivers come online. (e) internal/executionstate coverage at exact 90.0% floor — must not regress in M5.b/c/d.",
+    "Persistent local environment quirk (NOT a regression): kiox -- orun plan --changed --intent examples/intent.yaml occasionally fails on composition-cache resolution. Reproduces sporadically on main. CI is authoritative."
   ]
 }

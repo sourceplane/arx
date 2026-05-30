@@ -762,11 +762,30 @@ history; reports/prompts are no longer present in the working tree.
 
 ## Task 0016
 
-|- Agent: Implementer
+|- Agent: Implementer + Verifier (single-pass closure)
 |- Prompt: `ai/tasks/task-0016.md`
-|- Status: **scoped and ready to begin (2026-05-30)**
+|- Verifier report: `ai/reports/task-0016-verifier.md`
+|- Status: **verified PASS, merged 2026-05-30T12:31:56Z**
 |- Milestone: M5.a — `orun plan` rewire
-|- Branch (to be created from `main` @ `d51e828`): `impl/task-0016-m5a-orun-plan-rewire`
+|- Implementation: PR **#161** on `impl/task-0016-m5a-orun-plan-rewire`,
+   squash-merged to `main` as `7a9c494` "Task 0016: M5.a — orun plan rewire
+   to revision-first layout (#161)".
+|- PR CI: `CI / Orun Plan` run `26683860043` (44s, success);
+   `Harness dry-run guard` run `26683860052` (15s, success). Both required
+   checks PASS at log level on final head SHA after verifier-side commit
+   `01e75bd`.
+|- Diff stat: 10 files changed, +505 / -65. Modified `cmd/orun/main.go`
+   (+193 to add `computePlanHashForRevision` + `canonicalPlanJSON` helpers,
+   replace `state.SavePlan` branch with full revision pipeline, emit §1.1
+   summary block), `internal/model/plan.go` (+18 for `PlanRevisionMeta` +
+   `PlanTrigger.Type`/`Name`), `internal/revision/legacy.go` (+30 for
+   `WriteLegacyNamedPlan`). New tests: `cmd/orun/command_plan_revision_test.go`
+   (4 tests covering plan-hash invariance under checksum/revision mutation +
+   nil-plan paths) and `internal/revision/legacy_test.go` (4 tests covering
+   byte-identical alias writes + reserved/bad-name + nil-store).
+|- Coverage: `internal/statestore` 95.7 % (≥95 %); `internal/revision` 90.4 %
+   (≥90 %); `internal/executionstate` 90.0 % (exact floor held — package not
+   touched in M5.a).
 |- Objective: rewire `orun plan` to the canonical revision-first flow per
    `cli-surface.md` §1 — always resolve `TriggerOccurrence` via
    `internal/triggerctx`, embed `metadata.trigger` + `metadata.revision`,
@@ -774,25 +793,34 @@ history; reports/prompts are no longer present in the working tree.
    indexes), write byte-identical compat aliases at
    `.orun/plans/<checksum>.json` and `.orun/plans/latest.json`, preserve
    `-o/--output`, emit the new on-success summary block.
-|- Scope boundary (in): `cmd/orun/command_plan.go` and friends + tests +
-   minimal additive seams in `internal/revision`/`internal/triggerctx` only
-   if required to wire the rewire. (out): `orun run` (M5.b), `orun status`
-   / `logs` / `describe` / `get plans` (M5.c), hidden `orun state migrate`
-   (M5.d), `internal/runner` / `internal/runbundle` / `internal/state` /
+|- Scope boundary (in): `cmd/orun/main.go` (plan path) + `internal/model`
+   `PlanRevisionMeta`/`PlanTrigger` additions + `internal/revision` legacy
+   helper + tests. (out, held): `orun run` (M5.b), `orun status` / `logs` /
+   `describe` / `get plans` (M5.c), hidden `orun state migrate` (M5.d),
+   `internal/runner` / `internal/runbundle` / `internal/state` /
    `internal/executionstate`.
-|- Acceptance: canonical revision dir + refs + indexes + byte-identical
-   compat aliases + summary block all produced from a single `orun plan`
-   against `examples/intent.yaml`; `metadata.trigger` + `metadata.revision`
-   embedded for both `system.manual` and a synthesized provider trigger;
-   coverage gates preserved (`internal/revision` ≥ 90 %, `internal/triggerctx`
-   ≥ 90 %, `internal/statestore` ≥ 95 %, `internal/executionstate` ≥ 90 %
-   floor must not regress); local quality gates green; PR CI both required
-   checks SUCCESS at log level on final head SHA; PR Number reported (no
-   TBD).
-|- Expected outcome: `orun plan` end-to-end on the new layout while every
-   preserved workflow in `compatibility-and-migration.md` §1 keeps working
-   via the compat aliases. Unblocks Task 0018 (M5.b `orun run` rewire +
-   bridge wiring + `--revision`).
+|- Durable outcome on main: `orun plan` produces canonical revision layout
+   (`.orun/revisions/<key>/{plan,trigger,revision,manifest}.json`,
+   `.orun/refs/latest-revision.json`, `.orun/refs/triggers/<type>/<name>/{latest,manual}.json`,
+   `.orun/indexes/revisions/<key>.json`) plus byte-identical compat aliases
+   (`.orun/plans/<sha256>.json` + `.orun/plans/latest.json` + optional
+   `.orun/plans/<name>.json`) on every invocation. `metadata.trigger.Type`/
+   `Name` and `metadata.revision.{Key,PlanHash}` always populated. Plan
+   hash is canonical sha256 with self-referential metadata cleared per
+   data-model.md §3.1 — invariant under checksum and revision mutation.
+   `-o/--output` preserved as additive copy. New summary block (`✓ Plan
+   revision created` / Revision / Trigger / Jobs / Path / Output) renders
+   before legacy `components × envs → jobs` line so existing tooling that
+   scans for the legacy line keeps working.
+|- Verifier adjudications: scope discipline held (no overreach into runner /
+   runbundle / state / executionstate); no spec proposals filed; no spec
+   drift; risk notes from Task 0015 carried forward unchanged.
+|- Unblocks: **Task 0018 = M5.b `orun run` rewire** (resolve PlanRevision via
+   `internal/revision.ResolveRevision`, materialize in-memory system.manual
+   revision when none exists, create executions via
+   `internal/executionstate.CreateExecution`, hook runner snapshot stream
+   into `Bridge.MirrorRunnerOutput`, add `--revision` flag, pin
+   `bridge-mirror-failed` payload schema in `data-model.md` §9).
 
 ## Historical Notes
 
