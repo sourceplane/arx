@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/sourceplane/orun/internal/model"
+	"github.com/sourceplane/orun/internal/revision"
 	"github.com/sourceplane/orun/internal/state"
+	"github.com/sourceplane/orun/internal/statestore"
 	"github.com/sourceplane/orun/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +34,30 @@ func registerDescribeCommand(root *cobra.Command) {
 				ref = args[0]
 			}
 			return describeRun(ref)
+		},
+	})
+
+	describeCmd.AddCommand(&cobra.Command{
+		Use:   "revision [key]",
+		Short: "Describe a revision (revisions/<key>/{revision,trigger,manifest}.json)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := ""
+			if len(args) > 0 {
+				ref = args[0]
+			}
+			return describeRevision(ref)
+		},
+	})
+
+	describeCmd.AddCommand(&cobra.Command{
+		Use:   "trigger [key]",
+		Short: "Describe a trigger (revisions/<key>/trigger.json)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := ""
+			if len(args) > 0 {
+				ref = args[0]
+			}
+			return describeTrigger(ref)
 		},
 	})
 
@@ -75,6 +102,15 @@ func registerDescribeCommand(root *cobra.Command) {
 		if strings.HasPrefix(arg, "run/") {
 			return describeRun(strings.TrimPrefix(arg, "run/"))
 		}
+		if strings.HasPrefix(arg, "execution/") {
+			return describeRun(strings.TrimPrefix(arg, "execution/"))
+		}
+		if strings.HasPrefix(arg, "revision/") {
+			return describeRevision(strings.TrimPrefix(arg, "revision/"))
+		}
+		if strings.HasPrefix(arg, "trigger/") {
+			return describeTrigger(strings.TrimPrefix(arg, "trigger/"))
+		}
 		if strings.HasPrefix(arg, "plan/") {
 			return describePlan(strings.TrimPrefix(arg, "plan/"))
 		}
@@ -92,9 +128,21 @@ func describeRun(ref string) error {
 	store := state.NewStore(storeDir())
 	color := ui.ColorEnabledForWriter(os.Stdout)
 
-	execID, err := store.ResolveExecID(ref)
-	if err != nil {
-		return err
+	// M5.c: route through the seven-branch resolver. On miss
+	// (e.g. a workspace that hasn't materialized any revisions yet)
+	// fall back to the legacy state.Store resolver so existing
+	// `.orun/executions/<id>/` rows keep working.
+	var execID string
+	var rx *resolvedExec
+	if r, err := resolveExecutionForRead(context.Background(), ref, ""); err == nil {
+		rx = r
+		execID = r.LegacyExecID
+	} else {
+		var err2 error
+		execID, err2 = store.ResolveExecID(ref)
+		if err2 != nil {
+			return err2
+		}
 	}
 
 	meta, _ := store.LoadMetadata(execID)
@@ -102,6 +150,13 @@ func describeRun(ref string) error {
 
 	fmt.Fprintf(os.Stdout, "\n%s\n", ui.Bold(color, "Execution: "+execID))
 	fmt.Fprintln(os.Stdout, strings.Repeat("─", 60))
+
+	if rx != nil {
+		fmt.Fprintf(os.Stdout, "Revision Key: %s\n", rx.RevisionKey)
+		fmt.Fprintf(os.Stdout, "Execution Key: %s\n", rx.ExecutionKey)
+		fmt.Fprintf(os.Stdout, "Legacy Exec ID: %s\n", rx.LegacyExecID)
+		fmt.Fprintf(os.Stdout, "Source: %s\n", string(rx.Source))
+	}
 
 	if meta != nil {
 		fmt.Fprintf(os.Stdout, "Plan:        %s\n", meta.PlanName)
@@ -279,4 +334,104 @@ func describeJob(jobRef string) error {
 
 type PlanJobRef struct {
 	Job model.PlanJob
+}
+
+// describeRevision renders the revision document and its embedded
+// trigger summary. ref="" resolves the latest revision.
+func describeRevision(ref string) error {
+	color := ui.ColorEnabledForWriter(os.Stdout)
+	store, _, err := openLocalStateStore()
+	if err != nil {
+		return err
+	}
+	revRef, err := revision.ResolveRevision(context.Background(), store, ref, revision.ResolveOptions{})
+	if err != nil {
+		return fmt.Errorf("resolve revision: %w", err)
+	}
+	rev := revRef.Revision
+	trig := revRef.Trigger
+	revKey := rev.RevisionKey
+
+	if getOutputFormat == "json" {
+		out := map[string]interface{}{
+			"revisionKey": revKey,
+			"revision":    rev,
+			"trigger":     trig,
+			"source":      string(revRef.Source),
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(out)
+	}
+
+	fmt.Fprintf(os.Stdout, "\n%s\n", ui.Bold(color, "Revision: "+revKey))
+	fmt.Fprintln(os.Stdout, strings.Repeat("─", 60))
+	fmt.Fprintf(os.Stdout, "Revision ID:  %s\n", rev.RevisionID)
+	fmt.Fprintf(os.Stdout, "Plan Hash:    %s\n", rev.PlanHash)
+	fmt.Fprintf(os.Stdout, "Trigger Key:  %s\n", trig.TriggerKey)
+	fmt.Fprintf(os.Stdout, "Trigger Name: %s\n", trig.TriggerName)
+	fmt.Fprintf(os.Stdout, "Source:       %s\n", string(revRef.Source))
+	if revRef.NamedRefName != "" {
+		fmt.Fprintf(os.Stdout, "Named Ref:    %s\n", revRef.NamedRefName)
+	}
+
+	// Latest execution under this revision (manifest summary).
+	manifestPath := statestore.ManifestPath(revKey)
+	if raw, _, mErr := store.Read(context.Background(), manifestPath); mErr == nil {
+		var manifest struct {
+			Summary struct {
+				JobCount              int      `json:"jobCount"`
+				ActiveEnvironments    []string `json:"activeEnvironments"`
+				LatestExecutionKey    string   `json:"latestExecutionKey,omitempty"`
+				LatestExecutionStatus string   `json:"latestExecutionStatus,omitempty"`
+			} `json:"summary"`
+		}
+		if jErr := json.Unmarshal(raw, &manifest); jErr == nil {
+			fmt.Fprintf(os.Stdout, "Job Count:    %d\n", manifest.Summary.JobCount)
+			if len(manifest.Summary.ActiveEnvironments) > 0 {
+				fmt.Fprintf(os.Stdout, "Environments: %s\n", strings.Join(manifest.Summary.ActiveEnvironments, ", "))
+			}
+			if manifest.Summary.LatestExecutionKey != "" {
+				fmt.Fprintf(os.Stdout, "Latest Exec:  %s (%s)\n",
+					manifest.Summary.LatestExecutionKey, manifest.Summary.LatestExecutionStatus)
+			}
+		}
+	}
+	return nil
+}
+
+// describeTrigger renders trigger.json under a revision. ref="" resolves
+// the latest revision and shows its trigger.
+func describeTrigger(ref string) error {
+	color := ui.ColorEnabledForWriter(os.Stdout)
+	store, _, err := openLocalStateStore()
+	if err != nil {
+		return err
+	}
+	revRef, err := revision.ResolveRevision(context.Background(), store, ref, revision.ResolveOptions{})
+	if err != nil {
+		return fmt.Errorf("resolve revision for trigger: %w", err)
+	}
+	trig := revRef.Trigger
+
+	if getOutputFormat == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(trig)
+	}
+
+	fmt.Fprintf(os.Stdout, "\n%s\n", ui.Bold(color, "Trigger: "+trig.TriggerKey))
+	fmt.Fprintln(os.Stdout, strings.Repeat("─", 60))
+	fmt.Fprintf(os.Stdout, "Trigger ID: %s\n", trig.TriggerID)
+	fmt.Fprintf(os.Stdout, "Name:       %s\n", trig.TriggerName)
+	fmt.Fprintf(os.Stdout, "Type:       %s\n", trig.TriggerType)
+	fmt.Fprintf(os.Stdout, "Mode:       %s\n", trig.Mode)
+	fmt.Fprintf(os.Stdout, "Provider:   %s\n", trig.Provider)
+	fmt.Fprintf(os.Stdout, "Event:      %s\n", trig.Event)
+	if trig.Action != "" {
+		fmt.Fprintf(os.Stdout, "Action:     %s\n", trig.Action)
+	}
+	fmt.Fprintf(os.Stdout, "Scope:      %s\n", trig.PlanScope.Mode)
+	fmt.Fprintf(os.Stdout, "Revision:   %s\n", revRef.Revision.RevisionKey)
+	return nil
 }

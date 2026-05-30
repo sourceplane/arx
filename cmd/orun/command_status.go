@@ -21,6 +21,7 @@ import (
 
 var (
 	statusExecID      string
+	statusRevision    string
 	statusAll         bool
 	statusDetailed    bool
 	statusJSON        bool
@@ -51,6 +52,7 @@ func registerStatusCommand(root *cobra.Command) {
 	root.AddCommand(statusCmd)
 
 	statusCmd.Flags().StringVar(&statusExecID, "exec-id", "", "Show a specific execution")
+	statusCmd.Flags().StringVar(&statusRevision, "revision", "", "Pin the resolution to a revision key")
 	statusCmd.Flags().BoolVar(&statusAll, "all", false, "Show all executions")
 	statusCmd.Flags().BoolVar(&statusDetailed, "detailed", false, "Show step-level detail")
 	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output in JSON format")
@@ -120,9 +122,17 @@ func showStatus() error {
 	}
 
 	resolveExecID := func() (string, error) {
+		// M5.c: route lookup through executionstate.ResolveExecution
+		// so the seven-branch ladder + legacy fallback are honored.
+		// On miss, fall back to the legacy state.Store resolver to
+		// preserve compatibility with workspaces that haven't run
+		// the M4/M5 writers yet.
 		ref := statusExecID
 		if ref == "" {
 			ref = "latest"
+		}
+		if rx, err := resolveExecutionForRead(context.Background(), statusExecID, statusRevision); err == nil {
+			return rx.LegacyExecID, nil
 		}
 		return store.ResolveExecID(ref)
 	}

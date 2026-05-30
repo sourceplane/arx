@@ -19,6 +19,8 @@ import (
 
 var (
 	logsExecID        string
+	logsRevision      string
+	logsAll           bool
 	logsJob           string
 	logsStep          string
 	logsFailed        bool
@@ -54,6 +56,8 @@ func registerLogsCommand(root *cobra.Command) {
 	root.AddCommand(logsCmd)
 
 	logsCmd.Flags().StringVar(&logsExecID, "exec-id", "", "Execution ID")
+	logsCmd.Flags().StringVar(&logsRevision, "revision", "", "Pin the resolution to a revision key")
+	logsCmd.Flags().BoolVar(&logsAll, "all", false, "Stream logs across all executions (best-effort)")
 	logsCmd.Flags().StringVar(&logsJob, "job", "", "Filter logs by job ID")
 	logsCmd.Flags().StringVar(&logsStep, "step", "", "Filter logs by step ID")
 	logsCmd.Flags().BoolVar(&logsFailed, "failed", false, "Show only failed jobs or steps")
@@ -115,18 +119,23 @@ func showLogs() error {
 	store := state.NewStore(storeDir())
 
 	execID := logsExecID
-	if execID == "" {
-		var err error
-		execID, err = store.ResolveExecID("latest")
-		if err != nil {
+	// M5.c: prefer the new revision-first resolver (handles
+	// --revision pinning + legacy fallback). On miss, fall through
+	// to the legacy state.Store resolver.
+	if rx, err := resolveExecutionForRead(context.Background(), logsExecID, logsRevision); err == nil {
+		execID = rx.LegacyExecID
+	} else if execID == "" {
+		var lerr error
+		execID, lerr = store.ResolveExecID("latest")
+		if lerr != nil {
 			fmt.Println(ui.Dim(color, "No runs yet."))
 			return nil
 		}
 	} else {
-		var err error
-		execID, err = store.ResolveExecID(execID)
-		if err != nil {
-			return err
+		var lerr error
+		execID, lerr = store.ResolveExecID(execID)
+		if lerr != nil {
+			return lerr
 		}
 	}
 

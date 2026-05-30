@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/sourceplane/orun/internal/model"
+	"github.com/sourceplane/orun/internal/revision"
 	"github.com/sourceplane/orun/internal/state"
+	"github.com/sourceplane/orun/internal/statestore"
 	"github.com/sourceplane/orun/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -80,12 +83,172 @@ func registerGetCommand(root *cobra.Command) {
 }
 
 func getPlans() error {
+	// M5.c: Prefer the revision-first table when revisions/ has data.
+	// Fall back to the legacy plan-hash table when only `.orun/plans/`
+	// exists.
+	if rows, ok, err := loadRevisionPlanRows(); err != nil {
+		return err
+	} else if ok {
+		return renderRevisionPlanTable(rows)
+	}
+	return renderLegacyPlanTable()
+}
+
+// revisionPlanRow is the projected row used by `orun get plans` after the
+// state-redesign rewire. One row per revision key.
+type revisionPlanRow struct {
+	RevisionKey   string   `json:"revisionKey"`
+	TriggerName   string   `json:"trigger"`
+	PlanHash      string   `json:"plan"`
+	JobCount      int      `json:"jobs"`
+	LatestExec    string   `json:"latestExec,omitempty"`
+	LatestStatus  string   `json:"status,omitempty"`
+	Environments  []string `json:"environments,omitempty"`
+}
+
+// loadRevisionPlanRows scans revisions/<key>/manifest.json and projects each
+// into a revisionPlanRow. ok=false signals the new layout is empty (no
+// revisions yet) so the caller can fall back to the legacy table.
+func loadRevisionPlanRows() ([]revisionPlanRow, bool, error) {
+	store, _, err := openLocalStateStore()
+	if err != nil {
+		// Treat any open-failure as "no new layout" — the legacy
+		// fallback will still try the on-disk plans/ dir.
+		return nil, false, nil
+	}
+	ctx := context.Background()
+	infos, err := store.List(ctx, "revisions")
+	if err != nil || len(infos) == 0 {
+		return nil, false, nil
+	}
+	keys := map[string]struct{}{}
+	for _, info := range infos {
+		// Path looks like revisions/<key>/...
+		parts := strings.SplitN(info.Path, "/", 3)
+		if len(parts) < 2 || parts[0] != "revisions" {
+			continue
+		}
+		if parts[1] == "" {
+			continue
+		}
+		keys[parts[1]] = struct{}{}
+	}
+	if len(keys) == 0 {
+		return nil, false, nil
+	}
+	sorted := make([]string, 0, len(keys))
+	for k := range keys {
+		sorted = append(sorted, k)
+	}
+	sort.Strings(sorted)
+
+	rows := make([]revisionPlanRow, 0, len(sorted))
+	for _, revKey := range sorted {
+		row := revisionPlanRow{RevisionKey: revKey}
+		// Pull job count + latest exec via the manifest summary.
+		mPath := statestore.ManifestPath(revKey)
+		if raw, _, mErr := store.Read(ctx, mPath); mErr == nil {
+			var manifest revision.RevisionManifest
+			if jErr := json.Unmarshal(raw, &manifest); jErr == nil {
+				row.JobCount = manifest.Summary.JobCount
+				row.Environments = manifest.Summary.ActiveEnvironments
+				row.LatestExec = manifest.Summary.LatestExecutionKey
+				row.LatestStatus = manifest.Summary.LatestExecutionStatus
+				row.TriggerName = manifest.Trigger.Name
+				row.PlanHash = shortHash(manifest.Revision.PlanHash)
+			}
+		}
+		// If manifest didn't supply a trigger name, fall back to
+		// trigger.json on the revision dir.
+		if row.TriggerName == "" {
+			tPath := statestore.TriggerPath(revKey)
+			if raw, _, tErr := store.Read(ctx, tPath); tErr == nil {
+				var trig struct {
+					Name string `json:"name"`
+				}
+				_ = json.Unmarshal(raw, &trig)
+				row.TriggerName = trig.Name
+			}
+		}
+		rows = append(rows, row)
+	}
+	return rows, true, nil
+}
+
+// shortHash returns the first 7 chars of a hex hash, stripping a "sha256-"
+// prefix if present. Used to mirror the existing plan-id formatting.
+func shortHash(h string) string {
+	h = strings.TrimPrefix(h, "sha256-")
+	if len(h) > 7 {
+		return h[:7]
+	}
+	return h
+}
+
+func renderRevisionPlanTable(rows []revisionPlanRow) error {
+	if getOutputFormat == "json" {
+		out := map[string]interface{}{
+			"revisions": rows,
+		}
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, string(data))
+		return nil
+	}
+
+	color := ui.ColorEnabledForWriter(os.Stdout)
+	fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
+		padRight(ui.Bold(color, "REVISION"), 38),
+		padRight(ui.Bold(color, "TRIGGER"), 24),
+		padRight(ui.Bold(color, "PLAN"), 8),
+		padRight(ui.Bold(color, "JOBS"), 5),
+		padRight(ui.Bold(color, "LATEST EXEC"), 16),
+		ui.Bold(color, "STATUS"))
+
+	for _, row := range rows {
+		latestExec := row.LatestExec
+		if latestExec == "" {
+			latestExec = "—"
+		}
+		status := row.LatestStatus
+		if status == "" {
+			status = "—"
+		}
+		trigger := row.TriggerName
+		if trigger == "" {
+			trigger = "—"
+		}
+		planHash := row.PlanHash
+		if planHash == "" {
+			planHash = "—"
+		}
+		fmt.Fprintf(os.Stdout, "%-38s  %-24s  %-8s  %-5d  %-16s  %s\n",
+			row.RevisionKey, trigger, planHash, row.JobCount, latestExec, status)
+	}
+
+	fmt.Println()
+	count := len(rows)
+	noun := "revision"
+	if count != 1 {
+		noun = "revisions"
+	}
+	fmt.Println(ui.Dim(color, fmt.Sprintf("%d %s", count, noun)))
+	return nil
+}
+
+func renderLegacyPlanTable() error {
 	store := state.NewStore(storeDir())
 	plans, err := store.ListPlans()
 	if err != nil {
 		return err
 	}
 	if len(plans) == 0 {
+		if getOutputFormat == "json" {
+			fmt.Fprintln(os.Stdout, "[]")
+			return nil
+		}
 		color := ui.ColorEnabledForWriter(os.Stdout)
 		fmt.Println(ui.Dim(color, "No plans yet."))
 		fmt.Println()
@@ -95,7 +258,7 @@ func getPlans() error {
 
 	if getOutputFormat == "json" {
 		data, _ := json.MarshalIndent(plans, "", "  ")
-		fmt.Println(string(data))
+		fmt.Fprintln(os.Stdout, string(data))
 		return nil
 	}
 
@@ -138,6 +301,7 @@ func getPlans() error {
 
 	return nil
 }
+
 
 func getJobs() error {
 	store := state.NewStore(storeDir())
