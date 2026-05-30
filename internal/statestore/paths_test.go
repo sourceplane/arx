@@ -13,6 +13,22 @@ func TestRevisionDir(t *testing.T) {
 	}
 }
 
+func TestLegacyExecutionFilePath(t *testing.T) {
+	got := LegacyExecutionFilePath("gh-12345-1-abcdef0", "state.json")
+	want := "executions/gh-12345-1-abcdef0/state.json"
+	if got != want {
+		t.Fatalf("LegacyExecutionFilePath = %q, want %q", got, want)
+	}
+}
+
+func TestExecutionFilePath(t *testing.T) {
+	got := ExecutionFilePath("rev-main-p12345678", "run-001", "metadata.json")
+	want := "revisions/rev-main-p12345678/executions/run-001/metadata.json"
+	if got != want {
+		t.Fatalf("ExecutionFilePath = %q, want %q", got, want)
+	}
+}
+
 func TestPlanPath(t *testing.T) {
 	got := PlanPath("rev-x")
 	want := "revisions/rev-x/plan.json"
