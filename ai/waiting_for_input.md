@@ -1,3 +1,21 @@
-No human input currently requested. Task 0004 (M2 PR-B — `internal/statestore` real `CompareAndSwap` + `List` + atomicity/exclusivity/CAS/`pgregory.net/rapid` property suite) verifier passed PASS and squash-merged PR #155 → main commit `0fa2111` on 2026-05-30. Branch `impl/task-0004-m2-statestore-prb` deleted. Verifier report at `ai/reports/task-0004-verifier.md`. Coverage on `internal/statestore` measured 95.4 % (gate ≥ 95 %); required CI runs 26670829548 (CI / Orun Plan) + 26670829550 (Harness dry-run guard) both SUCCESS at log level.
+No human input currently requested. Milestone M3 (`internal/revision`) is the
+active milestone. M3 PR-A (Task 0007 — model + keys + writer skeleton) was
+delivered into PR **#157** by the corrective Task 0008 chore. PR #157 is
+OPEN, MERGEABLE, mergeStateStatus CLEAN, head SHA `500218c`, with both
+required CI checks SUCCESS (`CI / Orun Plan` run `26672937657`,
+`Harness dry-run guard` run `26672937641`).
 
-Next: implementer picks up **Task 0005 = M2 PR-C** scoped at `ai/tasks/task-0005.md` — typed `refs.go` helpers (covering `data-model.md` §6.1–§6.4) + typed `indexes.go` writers (covering §7.1 / §7.2) + `RebuildIndexes()` stub. Coverage gate stays ≥ 95 % (target ≥ 96 %); leaf-clean and no production-caller wiring still hold. After Task 0005 lands and is verified, Milestone M2 closes and M3 (`internal/revision`) starts.
+Current orchestrator decision (2026-05-30): emit **Task 0009 = M3 PR-A
+verifier** at `ai/tasks/task-0009-verifier.md`. Verifier validates Task 0007
+against `specs/orun-state-redesign/implementation-plan.md` Milestone M3
+"Done when" criteria (≥90 % coverage, revision-key uniqueness +
+collision-suffix property test, leaf-clean imports, all exported symbols
+documented), adjudicates the claim-first ordering deviation from
+`cli-surface.md` §1.2 step-7 (accept-and-document inline OR file
+`ai/proposals/task-0007-spec-update.md`), inspects PR CI logs at log level,
+and merges per the Verifier Merge Protocol on PASS.
+
+Next implementer after Task 0009 = **Task 0010 = M3 PR-B implementer**
+(`manifest.go` + `resolver.go` seven-branch resolver + legacy
+`.orun/plans/<checksum>.json` mirror body promoting the `// TODO(m5)` stub
+to a real conditional write gated by `Config.CompatibilityWrites`).

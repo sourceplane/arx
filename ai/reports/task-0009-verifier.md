@@ -74,4 +74,4 @@ Proceed to **Task 0010 — M3 PR-B implementer**: deliver `internal/revision/man
 
 ## PR Number / Merge SHA
 
-PR **#157** (`impl/task-0007-m3-revision-pra`). Merge commit SHA: filled in post-merge below.
+PR **#157** (`impl/task-0007-m3-revision-pra`). Squash-merged 2026-05-30T03:33:16Z. Merge commit on `main`: **`7f1e53d6d43f31456aa191b3a37c6a8a331149ea`**. Branch deleted.

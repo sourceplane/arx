@@ -6,130 +6,93 @@ local state model. See `specs/orun-state-redesign/README.md` for the index and
 read order.
 
 ## Active Milestone
-**M2 — `internal/statestore`** (frozen interface + local driver). PR A landed
-(`9b0a39c`, #154); PR B landed (`0fa2111`, #155, verified PASS); **PR C — typed
-refs/indexes marshallers — is the current implementer task** and closes M2.
+**M3 — `internal/revision`**. M2 closed at PR #156 (`cd8b3e8`, verified PASS).
+M3 PR-A (Task 0007 model + keys + writer skeleton) verified PASS and
+squash-merged via PR **#157** at main commit `7f1e53d` on 2026-05-30T03:33:16Z.
+**Next: M3 PR-B (Task 0010).**
 
-## Current Task
-**Task 0005 — M2 PR-C (Implementer)** — scoped 2026-05-30. Prompt:
-`ai/tasks/task-0005.md`. Suggested branch: `impl/task-0005-m2-statestore-prc`.
+## Last Completed Task (0009 — M3 PR-A Verifier)
+- Result: **PASS** — PR #157 squash-merged → `main` `7f1e53d` at 2026-05-30T03:33:16Z; branch `impl/task-0007-m3-revision-pra` deleted.
+- Verifier report: `ai/reports/task-0009-verifier.md`.
+- Coverage on `internal/revision` 93.3 % (gate ≥ 90 %); `internal/statestore` 96.1 % (no regression).
+- Both required CI checks SUCCESS at log level on the verifier-side commit (`Orun Plan` 59 s, `Harness dry-run guard` 19 s).
+- Claim-first ordering deviation from `cli-surface.md` §1.2 ACCEPTED in-place; no spec proposal filed (rationale in verifier report).
+- Risk Notes carried forward: `stateStoreVersionPath()` lives in `internal/revision` (deferred relocation); `writeCompatibilityMirror` is a no-op stub gated by default-true `Config.CompatibilityWrites` (M5 fills the body); `RevSummary.JobCount` = 0 in PR-A (PR-B threads it via `WriteManifest`).
 
-Adds:
-
-- `internal/statestore/refs.go` — typed reader/writer + CAS helpers for all four
-  ref shapes in `data-model.md` §6 (`LatestRevisionRef`, `LatestExecutionRef`,
-  `TriggerRef`, `NamedRef`).
-- `internal/statestore/indexes.go` — typed index writers for both shapes in
-  `data-model.md` §7 (`RevisionIndexEntry`, `ExecutionIndexEntry`) plus the
-  `RebuildIndexes()` stub returning `%w: rebuild deferred to M3+` wrapping
-  `ErrInvalid`.
-- Round-trip / `ErrNotFound` / `ErrExists` / CAS-conflict / JSON-byte-stability
-  tests via `internal/testfx/statefs.AssertJSONFile`.
-
-Strict constraints: zero string concatenation for paths (everything via
-`paths.go`); deterministic JSON marshalling with trailing `\n` and no HTML
-escaping; CAS helpers take `*ObjectMeta` from prior read (no re-read inside
-the helper); index writers use `CreateIfAbsent` (re-write → `ErrExists`);
-package stays leaf-clean (zero `internal/*` deps); NO production-caller
-wiring (`cmd/orun`, `internal/state`, `internal/runner`, `internal/runbundle`
-untouched); no new error sentinels; no new path helpers in `paths.go` (if
-missing → write proposal, do not add silently).
-
-Coverage gate stays ≥ 95 % on `internal/statestore`; PR-C should leave it
-≥ 96 % (M2 stretch target).
-
-## Last Completed Task (0004 — Verifier PASS, merged)
-- Implementer prompt: `ai/tasks/task-0004.md`
-- Verifier prompt:    `ai/tasks/task-0004-verifier.md`
-- Implementer report: `ai/reports/task-0004-implementer.md`
-- Verifier report:    `ai/reports/task-0004-verifier.md` (Result: PASS, no blocking issues, no spec proposals)
-- PR **#155** (`impl/task-0004-m2-statestore-prb`) verified PASS and squash-merged
-  on 2026-05-30 → main commit `0fa2111`. Branch deleted.
-- Durable outcome on main:
-  - Real `*LocalStore.CompareAndSwap` per `state-store.md` §3.3:
-    Read → revision compare → Write; `ErrNotFound` (via Read), `ErrConflict`
-    on revision mismatch; sentinels wrapped with `fmt.Errorf("%w: ...", ErrX, ...)`.
-    Per-path `sync.Mutex` narrows the in-process race (additive, §6 permits
-    "best-effort on local").
-  - Real `*LocalStore.List` per `state-store.md` §3.4: `WalkDir` over translated
-    prefix; symlinks skipped; `.orun-tmp-*` filtered; logical paths via
-    `filepath.ToSlash`; non-existent prefix → empty slice (no error);
-    `ErrInvalid` on alphabet/escape via `paths.go`.
-  - 17 new tests covering: 100-goroutine `Write` atomicity, 100-goroutine
-    `CreateIfAbsent` exclusivity, CAS exactly-one-wins, `pgregory.net/rapid`
-    path-alphabet round-trip with stable lowercase-hex sha256 `Revision`,
-    plus `List` edges (symlinks, FIFOs unix-only, tempfile filter, escape
-    rejection, ctx cancel).
-  - Coverage measured 95.4 % on `internal/statestore` (gate ≥ 95 %).
-  - No production-caller wiring; package stays leaf-clean.
-- CI evidence: `CI / Orun Plan` run **26670829548** observed real
-  `orun plan --from-ci github …` invocation with `0 components × 3 envs → 0
-  jobs` (legitimate empty matrix at M2 PR-B). `orun remote-state conformance /
-  Harness dry-run guard` run **26670829550** logged the full `[guard] PASS:`
-  battery (bash syntax, command-count thresholds, duplicate-claim helper PASS
-  + FAIL, status helper PASS + FAIL, exported env asserts).
-- Verifier non-blocking findings (carried forward, none blocking):
-  per-path `sync.Mutex` is in-process only (irrelevant to local Phase 1
-  single-process semantics; remote driver Phase 2 supersedes); empty-directory
-  `Delete` returns `ErrInvalid` (state-store.md §3.4 only mandates non-empty —
-  carried from Task 0003); coverage 95.4 % satisfies gate but sits below the
-  96 % stretch target — PR-C will add `refs.go` / `indexes.go` and should lift it.
+## Last Implementer Task (0008 — delivery chore)
+- Implementer prompts: `ai/tasks/task-0007.md`, `ai/tasks/task-0008.md`
+- Implementer reports: `ai/reports/task-0007-implementer.md` (PR #157, coverage 93.3 % on `internal/revision`),
+  `ai/reports/task-0008-implementer.md` (chore-only delivery; no production-code changes beyond Task 0007's tree)
+- Branch `impl/task-0007-m3-revision-pra` pushed; PR **#157** opened.
+  Implementer-side commits: `96621ed` (Task 0007 tree), `500218c` (PR-number
+  backfill into reports).
+- Outstanding flag for verifier: claim-first ordering deviation from
+  `cli-surface.md` §1.2 step-7 (index slot reserved via `CreateIfAbsent`
+  BEFORE body writes; rationale in
+  `ai/reports/task-0007-implementer.md` § "Step-Order Deviation From
+  cli-surface.md §1.2"). Implementer also flagged `version.json` helper
+  location as a defer-or-relocate decision.
 
 ## Repo Checkpoint
 
 | Attribute | Value |
 |---|---|
-| Branch | main (synced with origin/main) |
-| Last commit on main | `0fa2111` — Task 0004: M2 PR-B — statestore `CompareAndSwap` + `List` (#155) |
-| Open PRs (state-redesign lineage) | none |
-| Repo health | 🟢 Green |
-| Last verified | 2026-05-30 (Task 0004, PR #155) |
-| Active milestone | M2 (`internal/statestore`) — PR A + PR B landed; PR C scoped |
-| Tasks completed | 0001, 0002, 0003, 0004 (4 total) |
-| Current task | **0005** (scoped, awaiting implementer) |
+| Branch (local checkout) | `main` (clean post-merge) |
+| `main` tip | `7f1e53d` — Task 0007: M3 PR-A — internal/revision model + keys + writer skeleton (#157) |
+| Open PRs (state-redesign lineage) | None |
+| Repo health | 🟢 Green — M3 PR-A on main; ready for Task 0010 |
+| Last verified | 2026-05-30 (Task 0009, PR #157) |
+| Active milestone | M3 (`internal/revision`) — PR-A merged; PR-B next |
+| Tasks completed | 0001, 0002, 0003, 0004, 0005, 0007, 0008, 0009 (8 total) |
+| Current task | None (awaiting Task 0010 emission) |
 
 ## Roadmap (M0 → M6)
 1. ✅ **M0 Foundation** — landed on main at `4ea1980` (PR #152).
 2. ✅ **M1 `internal/triggerctx`** — landed on main at `db342dd` (PR #153).
-3. **M2 `internal/statestore`** ← current
-   - ✅ PR A — frozen interface + local driver non-CAS ops (PR #154 → `9b0a39c`)
-   - ✅ PR B — `CompareAndSwap`, `List`, atomicity/exclusivity/CAS/`rapid` property suite (PR #155 → `0fa2111`)
-   - 🟡 PR C — typed refs/indexes marshallers + `RebuildIndexes()` stub (Task 0005 scoped)
-4. M3 `internal/revision`
+3. ✅ **M2 `internal/statestore`** — closed at PR #156 (`cd8b3e8`, 2026-05-30).
+   - PR A — frozen interface + local driver non-CAS ops (PR #154 → `9b0a39c`)
+   - PR B — `CompareAndSwap`, `List`, atomicity/exclusivity/CAS/`rapid` property suite (PR #155 → `0fa2111`)
+   - PR C — typed refs/indexes marshallers + `RebuildIndexes()` stub (PR #156 → `cd8b3e8`)
+4. **M3 `internal/revision`** ← current
+   - ✅ PR-A — model + keys + writer skeleton (PR #157 → `7f1e53d`, verified PASS via Task 0009 on 2026-05-30)
+   - PR-B — `ResolveRevision` seven-branch resolver + `WriteManifest` + legacy `.orun/plans/**` mirror body (Task 0010, next)
 5. M4 `internal/executionstate` + runner bridge
 6. M5 CLI rewire (`orun plan/run/status/logs/describe/get plans` + hidden `state migrate`)
 7. M6 End-to-end + property gates
 
-## Next Task After 0005 (proposed)
-**Task 0006 — M2 PR-C Verifier** then immediately **Task 0007 — M3 PR-A
-(Implementer)** opening the `internal/revision` package: `model.go`
-(`PlanRevision`, `RevSummary`), `keys.go` (`RevisionKey(trig, planHash)`,
-regex validator, collision suffix logic), and `writer.go` skeleton with the
-ordered writes from `design.md` §5.1 / writer-order list (compatibility
-writes gated on `stateCompatibilityWrites`, default true). Manifest +
-`ResolveRevision` may split into PR-B per `implementation-plan.md` Milestone
-M3 suggested PR scope (1–2 PRs). Coverage gate ≥ 90 % per "Done when".
+## Next Task After 0009 (proposed)
+**Task 0010 — M3 PR-B Implementer.** Adds `manifest.go`
+(`WriteManifest`, `UpdateLatestExecutionSummary`), `resolver.go`
+(`ResolveRevision` seven-branch resolver per
+`compatibility-and-migration.md` §3), and promotes the `// TODO(m5)`
+compatibility-mirror stub in `writer.go` to a real conditional write of
+the legacy `.orun/plans/<checksum>.json` body gated by
+`Config.CompatibilityWrites`. Coverage gate stays ≥ 90 %; resolver test
+matrix MUST cover all 7 resolution branches; compat-writes flag MUST
+exercise both true and false paths. Branch suggestion:
+`impl/task-0010-m3-revision-prb`.
 
-If Task 0005 implementer hits an unrecoverable spec ambiguity (e.g. missing
-path helper, ref shape disagreement with `data-model.md` §6), the implementer
-files a proposal under `ai/proposals/task-0005-spec-update.md` and pauses;
-orchestrator scopes a spec-update task next instead of M3.
+If Task 0009 verifier rejects the claim-first ordering and files
+`ai/proposals/task-0007-spec-update.md`, the orchestrator will accept,
+revise, defer, or query the user about it before generating Task 0010 —
+and may interpose a small spec-update task between 0009 and 0010.
 
 ## Known Spec Drift / Open Questions
-- Persistent local-only `kiox -- orun plan --changed --intent
-  examples/intent.yaml` failure on composition-cache resolution
-  (`stack.yaml at ~/.orun/cache/compositions/c41fc08… has no
-  spec.compositions`). Reproduces sporadically from Task 0001 onward on main
-  and on PR branches; Task 0004 verifier observed it DID NOT reproduce on
-  that run. Flaky local cache, not a code regression. CI is authoritative.
-- Optional clarification: `state-store.md` §3.4 could explicitly state
-  whether empty-directory `Delete` succeeds or returns `ErrInvalid`. The
-  PR-A implementation chose the conservative refuse-all-directories path
-  and PR-B did not change it. File a proposal under `ai/proposals/` if a
-  future caller needs the loosened behavior.
-
-## Secondary Specs (not driving new tasks this phase)
-- `.kiro/specs/orun-tui-cockpit/` — paused. Resumes after M5 lands.
-- `.kiro/specs/github-artifacts/` — cross-check only; new revision/execution
-  keys must remain compatible with the existing
-  `gh-{run_id}-{attempt}-{sha}` ExecID shape produced by `internal/runbundle`.
+- **Claim-first vs `cli-surface.md` §1.2 step-7 ordering.** Task 0009 verifier
+  ACCEPTED the deviation in-place (no proposal filed). Rationale:
+  `CreateIfAbsent` is the only exclusive primitive in `state-store.md` §3,
+  claim-first is the only ordering producing distinct revision keys before any
+  body write occurs under concurrent `(TriggerKey, planHash)` duplicates, refs
+  still land after bodies preserving `state-store.md` §6 crash-recovery, and
+  `cli-surface.md` §1.2 is a high-level descriptive flow not a normative
+  atomicity proof. RESOLVED.
+- **`version.json` helper location.** Task 0009 verifier deferred relocation —
+  `stateStoreVersionPath()` stays in `internal/revision`. If M5 migration
+  tooling needs a statestore-side helper, that PR can lift the constant up.
+  RESOLVED.
+- **Half-shipped delivery anti-pattern.** Task 0007 was the first observed
+  case of "implemented locally" with no PR (see `open-risks.md` R-005).
+  Task 0008 corrective chore landed PR #157; future implementer prompts
+  should keep the `PR Creation Requirement` section explicit and acceptance
+  criteria should include a `gh pr list --head <branch>` check returning a
+  non-empty array.

@@ -324,6 +324,171 @@ history; reports/prompts are no longer present in the working tree.
    coverage, atomicity tests, concurrent `CreateIfAbsent` N=100, public
    docs on every exported symbol). M3 (`internal/revision`) unblocked.
 
+## Task 0005 (continued — implemented and merged)
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0005.md`
+|- Status: **implemented and merged via PR #156** (2026-05-30, main commit `cd8b3e8`)
+|- Branch: `impl/task-0005-m2-statestore-prc` @ `a8a580a`
+|- Implementer report: `ai/reports/task-0005-implementer.md` — coverage 96.1 %
+   on `internal/statestore` (gate ≥ 95 %, M2 stretch ≥ 96 % met); leaf-clean
+   confirmed; no production-caller wiring; no spec proposals.
+|- Files: `internal/statestore/refs.go` (286 LOC), `internal/statestore/indexes.go`
+   (105 LOC), `refs_test.go` (~430 LOC), `indexes_test.go` (~190 LOC). Includes
+   a source-guard test that fails if `refs.go` / `indexes.go` ever contain a
+   literal `"refs/"` / `"indexes/"` path string (paths must route through
+   `paths.go` only).
+|- Durable assumptions: CAS helpers take `prev ObjectMeta` from caller — no
+   re-read inside helper (loser-retries at the caller per `state-store.md` §6).
+   `TriggerRef` is a single `TriggerRefScope{Name, Latest, Scope}` value;
+   `Latest=true` ignores `Scope`, `Latest=false` requires non-empty `Scope`.
+   `marshalCanonicalJSON` uses `encoding/json` with `SetIndent("", "  ")` +
+   `SetEscapeHTML(false)`; trailing `\n` from `Encoder.Encode`.
+
+## Task 0006 (Verifier pass for Task 0005 / PR #156)
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0006-verifier.md`
+|- Status: **verified PASS and merged** (2026-05-30, PR #156 → main commit `cd8b3e8`)
+|- Verifying: PR **#156** (`impl/task-0005-m2-statestore-prc` @ `a8a580a`)
+|- Implementation: PR **#156** squash-merged → main commit `cd8b3e8`. Branch
+   `impl/task-0005-m2-statestore-prc` deleted.
+|- PR CI: `CI / Orun Plan` SUCCESS (run **26671612378**). `Harness dry-run guard`
+   SUCCESS (run **26671612360**). Other rollup checks SKIPPED legitimately
+   (empty matrix `0 components × 3 envs → 0 jobs` for a code-only PR).
+|- Verifier report: `ai/reports/task-0006-verifier.md`. Result: PASS. Diff
+   audited as exactly the four files implied by Task 0005 scope plus the
+   implementer report. `cmd/orun internal/state internal/runner internal/runbundle`
+   diff EMPTY. PR-A / PR-B surface (`paths.go`, `errors.go`, `store.go`,
+   `local.go`, rapid suite) byte-identical to PR-A / PR-B.
+|- Spec conformance verified byte-for-byte vs `data-model.md` §6.1–§6.4 / §7.1–§7.2,
+   `state-store.md` §1 / §2.1 / §3.3 / §6. Path-string source-guard test passes.
+   `RebuildIndexes()` returns `fmt.Errorf("%w: RebuildIndexes is deferred to M3+", ErrInvalid)`.
+|- Durable outcome on main: M2 closed. Typed `LatestRevisionRef` /
+   `LatestExecutionRef` / `TriggerRef` / `NamedRef` reader/writer/CAS helpers
+   live in `internal/statestore/refs.go`. Typed `RevisionIndexEntry` /
+   `ExecutionIndexEntry` writers via `CreateIfAbsent` live in
+   `internal/statestore/indexes.go`. `RebuildIndexes()` stub in place for M3+.
+|- Expected next: Task 0007 = M3 PR-A (Implementer) opens `internal/revision`.
+
+## Task 0007
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0007.md`
+|- Status: **delivered via PR #157** by the corrective Task 0008 chore
+   (2026-05-30). Branch `impl/task-0007-m3-revision-pra` head SHA `500218c`;
+   commits `96621ed` (Task 0007 tree) + `500218c` (PR-number backfill into
+   reports). Implementer report `ai/reports/task-0007-implementer.md` now
+   carries `PR Number: #157`. PR is OPEN, MERGEABLE, mergeStateStatus CLEAN,
+   both required CI checks SUCCESS at log level. Awaiting Task 0009 verifier.
+|- Milestone: M3 — `internal/revision` (PR-A: model + keys + writer skeleton)
+|- Branch: `impl/task-0007-m3-revision-pra` (local only)
+|- Objective: open `internal/revision` package shipping the typed model
+   (`PlanRevision`, `RevSummary`, `StateStoreVersion`), the revision-key
+   generator (`RevisionKey`, `ValidateRevisionKey`, `ResolveCollision`,
+   `PlanShortHash`) with collision suffix logic, and the writer skeleton
+   (`Config`, `WriteRevision`, `EnsureStateStoreVersion`,
+   `writeCompatibilityMirror` stub) executing the seven-step ordered write
+   list from `cli-surface.md` §1.2 / `design.md` §5.1.
+|- Scope boundary: `internal/revision/{model,keys,writer,version}.go`,
+   `internal/revision/{keys,writer,coverage}_test.go`, `Makefile` (revision
+   coverage gate ≥ 90 %). NO `manifest.go`, NO `resolver.go`, NO legacy mirror
+   body, NO production-caller wiring (deferred to M3 PR-B = Task 0010 and
+   M5 CLI rewire).
+|- Implementer reported quality gates green: `go build`, `go vet`,
+   `go test -race -count=1` on revision/statestore/triggerctx, and
+   `make test-state-redesign` (revision pkg coverage **93.3 %**, gate ≥ 90 %;
+   statestore stays at 96.1 %). Leaf-clean: revision pkg depends only on
+   `internal/statestore` + `internal/triggerctx` (transitive `internal/model`
+   via triggerctx) plus stdlib + `oklog/ulid/v2`.
+|- Open verifier item: **claim-first ordering deviation from `cli-surface.md`
+   §1.2 step-7.** Implementer reserves the index slot via `CreateIfAbsent`
+   BEFORE any body file is written, then overwrites the slot with the real
+   `RevisionIndexEntry` after refs land (originally listed as the last step).
+   Rationale documented in `ai/reports/task-0007-implementer.md` § "Step-Order
+   Deviation". Verifier (Task 0009) will accept-and-document or file
+   `ai/proposals/task-0007-spec-update.md`.
+|- Expected outcome: M3 PR-A delivered via the same PR shipped under Task 0008;
+   verified under Task 0009.
+
+## Task 0008
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0008.md`
+|- Status: scoped and ready to begin (2026-05-30) — corrective delivery chore
+|- Milestone: M3 — `internal/revision` (PR-A delivery)
+|- Branch: `impl/task-0007-m3-revision-pra` (REUSED; same PR as Task 0007)
+|- Objective: convert the locally-staged Task 0007 tree into a real reviewable
+   PR. Commit the staged tree, push the branch, open the PR titled
+   `Task 0007: M3 PR-A — internal/revision model + keys + writer skeleton`,
+   backfill the real PR number into `ai/reports/task-0007-implementer.md`,
+   and file `ai/reports/task-0008-implementer.md`.
+|- Scope boundary: NO code changes. If a quality gate fails on the staged tree,
+   the smallest targeted fix is allowed (committed as `fix: …` on the same
+   branch); the M3 PR-A scope itself stays intact. NO spec edits, NO production-
+   caller wiring, NO M3 PR-B work.
+|- Acceptance: branch pushed; PR open and MERGEABLE; both implementer reports
+   (0007 and 0008) carry `PR Number: #<PR>` (same number — single-PR delivery);
+   local quality gates green on the final committed tree; required CI checks
+   (`CI / Orun Plan`, `Harness dry-run guard`) at minimum queued/in-progress
+   before report close.
+|- Expected outcome: M3 PR-A real PR exists; next cycle emits Task 0009 = M3
+   PR-A verifier; M3 PR-A merge unblocks Task 0010 = M3 PR-B (manifest writer +
+   `ResolveRevision` seven-branch resolver + legacy `.orun/plans/**` mirror
+   body behind `Config.CompatibilityWrites`).
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0008.md`
+|- Status: **completed via PR #157** (2026-05-30). Commit `96621ed` shipped
+   the staged Task 0007 tree; commit `500218c` backfilled `PR Number: #157`
+   into both `ai/reports/task-0007-implementer.md` and the new
+   `ai/reports/task-0008-implementer.md`. Branch `impl/task-0007-m3-revision-pra`
+   pushed; PR opened (title: "Task 0007: M3 PR-A — internal/revision model +
+   keys + writer skeleton"); both required CI checks SUCCESS
+   (`CI / Orun Plan` run `26672937657`, `Harness dry-run guard`
+   run `26672937641`). PR is OPEN+MERGEABLE+CLEAN, awaiting verifier (Task 0009).
+|- Milestone: M3 — `internal/revision` (PR-A delivery)
+|- Branch: `impl/task-0007-m3-revision-pra` (REUSED; same PR as Task 0007)
+|- Objective: convert the locally-staged Task 0007 tree into a real reviewable
+   PR. Commit the staged tree, push the branch, open the PR titled
+   `Task 0007: M3 PR-A — internal/revision model + keys + writer skeleton`,
+   backfill the real PR number into `ai/reports/task-0007-implementer.md`,
+   and file `ai/reports/task-0008-implementer.md`.
+|- Scope boundary: NO code changes. If a quality gate fails on the staged tree,
+   the smallest targeted fix is allowed (committed as `fix: …` on the same
+   branch); the M3 PR-A scope itself stays intact. NO spec edits, NO production-
+   caller wiring, NO M3 PR-B work.
+|- Acceptance: branch pushed; PR open and MERGEABLE; both implementer reports
+   (0007 and 0008) carry `PR Number: #<PR>` (same number — single-PR delivery);
+   local quality gates green on the final committed tree; required CI checks
+   (`CI / Orun Plan`, `Harness dry-run guard`) at minimum queued/in-progress
+   before report close.
+|- Outcome: M3 PR-A real PR exists at #157 with both required CI green; next
+   cycle emits Task 0009 = M3 PR-A verifier. Closed R-005 mitigation per this
+   incident; pattern guard remains open for future implementer prompts.
+
+## Task 0009
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0009-verifier.md`
+|- Status: **verified PASS and merged via PR #157** (2026-05-30T03:33:16Z, main commit `7f1e53d6`)
+|- Verified: PR **#157** (`impl/task-0007-m3-revision-pra` @ `500218c` → `7f1e53d` after squash)
+|- Milestone: M3 — `internal/revision` (PR-A verification)
+|- Objective: validated Task 0007 against M3 "Done when" criteria; adjudicated the claim-first ordering deviation and the `version.json` helper-location decision; inspected both required CI runs at log level; merged per the Verifier Merge Protocol.
+|- Scope boundary: verification only. Verifier committed only `ai/reports/task-0009-verifier.md` to the PR branch. No production-code edits, no spec edits, no proposal filed.
+|- Verifier outcome (2026-05-30):
+   - Result: **PASS**.
+   - Coverage: `internal/revision` 93.3 % (gate ≥ 90 %); `internal/statestore` 96.1 % (gate ≥ 95 %, no regression).
+   - Local quality gates: `go build ./...`, `go vet ./...`, `go test -race -count=1` on revision/statestore/triggerctx, `make test-state-redesign`, `go list -deps` leaf-clean audit — all green.
+   - CI at log level: `CI / Orun Plan` (run `26672937657`, then `26673333973` on the verifier-side commit) executed real `orun plan --artifact github` against `examples/intent.yaml` with the legitimate `0 components × 3 envs → 0 jobs` empty matrix; plan artifact uploaded. `Harness dry-run guard` (run `26672937641`, then `26673333980`) emitted the full `[guard] PASS:` battery.
+   - Diff audit: PR boundaries clean — no overreach into `cmd/orun`, `internal/state`, `internal/runner`, `internal/runbundle`; `internal/triggerctx`, `internal/statestore`, `internal/testfx/statefs` byte-identical to `origin/main`; no PR-B leakage (`manifest.go`, `resolver.go` absent).
+   - Claim-first adjudication: ACCEPTED in-place. Rationale: `CreateIfAbsent` is the only exclusive primitive in `state-store.md` §3, claim-first is the only ordering producing distinct revision keys before any body write occurs under concurrent `(TriggerKey, planHash)` duplicates, refs still land after bodies preserving `state-store.md` §6 crash-recovery, and `cli-surface.md` §1.2 reads as a high-level descriptive flow not a normative atomicity proof. **No `ai/proposals/task-0007-spec-update.md` filed.**
+   - `version.json` helper-location adjudication: DEFER. `stateStoreVersionPath()` stays in `internal/revision`; if M5 migration tooling needs a statestore-side helper, that PR can lift the constant up.
+   - Risk Notes carried forward: `writeCompatibilityMirror` is a no-op stub gated by default-true `Config.CompatibilityWrites` (M5 fills the body); `RevSummary.JobCount` = 0 in PR-A (PR-B threads it via `WriteManifest`).
+|- Reports: implementer `ai/reports/task-0007-implementer.md` + `ai/reports/task-0008-implementer.md`; verifier `ai/reports/task-0009-verifier.md`.
+|- Durable outcome on `main`: `internal/revision` model (`PlanRevision`, `RevSummary`, `StateStoreVersion`) byte-matching `data-model.md` §3 / §1; revision-key generator + collision-suffix resolver with 100-iteration uniqueness/collision property test; `WriteRevision` seven-step ordered writer (claim-first index reservation → bodies → refs → index finalize → version doc → optional compat-mirror seam) wired against the frozen `internal/statestore` interface; coverage gate ≥ 90 % on `internal/revision`; leaf-clean imports (`statestore` + `triggerctx` only).
+|- Next: Task 0010 = M3 PR-B implementer.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
