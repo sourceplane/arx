@@ -13,7 +13,7 @@
   ],
   "last_verified": "2026-05-31",
   "waiting_for_input": "false",
-  "task_agent": "ai/tasks/task-0022.md",
+  "task_agent": "ai/reports/task-0022-implementer.md",
   "phase_history": {
     "phase_1_orun_state_redesign": {
       "spec": "specs/orun-state-redesign",
