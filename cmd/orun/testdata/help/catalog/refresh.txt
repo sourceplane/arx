@@ -1,0 +1,34 @@
+Resolve the current workspace into a (SourceSnapshot, CatalogSnapshot)
+pair and persist it through the catalog store.
+
+A byte-identical re-refresh is idempotent: it reuses the existing snapshot,
+prints the "up to date" form, and creates no new snapshot directory. When the
+worktree is dirty the snapshot is marked local-only and a banner is printed.
+
+Examples:
+  orun catalog refresh
+  orun catalog refresh --json
+
+Exit codes:
+  0  Snapshot created or reused (idempotent).
+  1  Validation error (or any warning under --strict).
+  2  Resolver internal error.
+  3  StateStore conflict / persistence failure.
+
+Usage:
+  orun catalog refresh [flags]
+
+Flags:
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --catalog-strict            Promote validation warnings to errors
+      --json                      Stable machine-readable output
+      --no-infer                  Disable the inference layer (stage 6)
+      --source string             Alias for --catalog-source
+      --strict                    Alias for --catalog-strict
+      --sync                      Phase 2: prints 'remote sync not configured' and exits 0
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")

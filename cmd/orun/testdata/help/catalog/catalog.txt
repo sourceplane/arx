@@ -1,0 +1,38 @@
+Resolve, persist, and inspect the component catalog.
+
+The catalog is the resolved set of components (plus their graphs and indexes)
+for a workspace at a given source snapshot. `orun catalog refresh` builds
+and persists a snapshot; the read subcommands inspect what has been persisted.
+
+Subcommands:
+  refresh   Resolve the current workspace and persist a catalog snapshot
+  list      List the components in the selected catalog
+  describe  Show the full resolved manifest for one component
+  tree      Render the catalog relationship graphs
+  history   Enumerate a component's execution history
+  validate  Re-resolve in strict mode and report validation issues
+  diff      Compare two catalog snapshots (not yet implemented — C8)
+  refs      List every catalog ref with its resolved source/catalog keys
+
+Run 'orun catalog <subcommand> --help' for details on each.
+
+Usage:
+  orun catalog [flags]
+  orun catalog [command]
+
+Available Commands:
+  describe    Show the full resolved manifest for one component
+  diff        Compare two catalog snapshots (not yet implemented — C8)
+  history     Enumerate a component's execution history
+  list        List the components in the selected catalog
+  refresh     Resolve the current workspace and persist a catalog snapshot
+  refs        List every catalog ref with its resolved source/catalog keys
+  tree        Render the catalog relationship graphs
+  validate    Re-resolve in strict mode and report validation issues
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")
+
+Use "orun catalog [command] --help" for more information about a command.

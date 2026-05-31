@@ -59,10 +59,16 @@ type catalogEnvelope struct {
 	Warnings   []string `json:"warnings"`
 }
 
-// Envelope kinds shipped by this PR.
+// Envelope kinds shipped by the C5 catalog surface (cli-surface.md §11).
 const (
-	kindCatalogRefreshResult = "CatalogRefreshResult"
-	kindCatalogRefsResult    = "CatalogRefsResult"
+	kindCatalogRefreshResult  = "CatalogRefreshResult"
+	kindCatalogRefsResult     = "CatalogRefsResult"
+	kindCatalogListResult     = "CatalogListResult"
+	kindCatalogDescribeResult = "CatalogDescribeResult"
+	kindCatalogTreeResult     = "CatalogTreeResult"
+	kindCatalogHistoryResult  = "CatalogHistoryResult"
+	kindCatalogValidateResult = "CatalogValidateResult"
+	kindCatalogDiffResult     = "CatalogDiffResult"
 )
 
 // writeCatalogEnvelope renders data as the standard envelope to stdout with
@@ -116,6 +122,12 @@ and persists a snapshot; the read subcommands inspect what has been persisted.
 
 Subcommands:
   refresh   Resolve the current workspace and persist a catalog snapshot
+  list      List the components in the selected catalog
+  describe  Show the full resolved manifest for one component
+  tree      Render the catalog relationship graphs
+  history   Enumerate a component's execution history
+  validate  Re-resolve in strict mode and report validation issues
+  diff      Compare two catalog snapshots (not yet implemented — C8)
   refs      List every catalog ref with its resolved source/catalog keys
 
 Run 'orun catalog <subcommand> --help' for details on each.`,
@@ -125,6 +137,12 @@ Run 'orun catalog <subcommand> --help' for details on each.`,
 	}
 
 	registerCatalogRefreshCommand(catalogCmd)
+	registerCatalogListCommand(catalogCmd)
+	registerCatalogDescribeCommand(catalogCmd)
+	registerCatalogTreeCommand(catalogCmd)
+	registerCatalogHistoryCommand(catalogCmd)
+	registerCatalogValidateCommand(catalogCmd)
+	registerCatalogDiffCommand(catalogCmd)
 	registerCatalogRefsCommand(catalogCmd)
 
 	root.AddCommand(catalogCmd)
@@ -290,4 +308,18 @@ func objectExists(ctx context.Context, st statestore.StateStore, path string) (b
 		return false, nil
 	}
 	return false, err
+}
+
+// catalogReadExit maps a Resolver read error onto the catalog CLI exit-code
+// contract: a not-found (catalog/component/source absent) is exit 6 with a
+// friendly hint to run refresh; any other read failure is a StateStore error
+// (exit 3). The wrapped message preserves the underlying cause for --json
+// stderr and debugging.
+func catalogReadExit(err error, ctxMsg string) error {
+	if errors.Is(err, statestore.ErrNotFound) ||
+		errors.Is(err, catalogstore.ErrCatalogNotFound) ||
+		errors.Is(err, catalogstore.ErrComponentNotFound) {
+		return exitErr(6, "%s: not found (run 'orun catalog refresh' first): %w", ctxMsg, err)
+	}
+	return exitErr(3, "%s: %w", ctxMsg, err)
 }

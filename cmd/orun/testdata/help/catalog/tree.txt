@@ -1,0 +1,33 @@
+Render the catalog dependency graph as a tree.
+
+With no component argument the whole dependency graph is rendered as a forest.
+Given a component the tree is rooted there and walked in the --direction:
+'out' (default) follows outgoing edges, 'in' follows incoming edges, 'both'
+follows either. Edges are annotated with their edge type.
+
+Examples:
+  orun catalog tree
+  orun catalog tree api-edge
+  orun catalog tree api-edge --direction both
+  orun catalog tree --json
+
+Exit codes:
+  0  Tree rendered (possibly empty).
+  1  Invalid selector or unknown --direction.
+  3  StateStore failure.
+  6  Catalog or graph not found.
+
+Usage:
+  orun catalog tree [component] [flags]
+
+Flags:
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --direction string          Edge direction to follow: out|in|both (default "out")
+      --json                      Stable machine-readable output
+      --source string             Alias for --catalog-source
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")
