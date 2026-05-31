@@ -1,7 +1,7 @@
 # Implementer Report — task-0024 (Phase 2 Milestone C1)
 
 - **Branch:** `impl/task-0024-c1-sourcectx-resolver`
-- **PR:** _opened by this report — see commit/push below_
+- **PR:** #169
 - **Status:** Ready for verification
 
 ## Scope
