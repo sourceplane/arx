@@ -1024,6 +1024,53 @@ schema). Milestones C0–C9 per `implementation-plan.md`.
    forward to `0023`; `task_agent` flipped to the verifier report
    path. Repo is clean and ready for the C0 code half.
 
+## Task 0023
+
+|- Agent: Implementer + Verifier (single-pass closure)
+|- Implementer prompt: `ai/tasks/task-0023.md`
+|- Verifier prompt: `ai/tasks/task-0023-verifier.md`
+|- Status: **PASS** + merged (2026-05-31). PR #168 squash commit on
+   `main`: `7f3f2bf`. PR-CI on verifier-fix head `3bd728c`:
+   `state-redesign-tests / test` SUCCESS (run `26704421826`),
+   `CI / Orun Plan` SUCCESS (run `26704421856`),
+   `Harness dry-run guard` SUCCESS. Matrix legs SKIPPED legitimately.
+|- Implementation: PR `https://github.com/sourceplane/orun/pull/168`,
+   branch `impl/task-0023-c0-catalogmodel` (deleted post-merge).
+|- Reports: implementer at `ai/reports/task-0023-implementer.md`,
+   verifier at `ai/reports/task-0023-verifier.md`.
+|- Milestone: C0 (code half) — pure data models, canonical encoder,
+   JSON Schema generator + drift gate, golden roundtrip fixtures,
+   property tests T-IDK-1 / T-IDK-3 / T-IDK-5, internal/sourcectx
+   skeleton (types only — resolver lands in C1).
+|- Scope (verified): new `internal/catalogmodel/` (15 Go files +
+   schema generator + 9 golden fixtures + roundtrip / property /
+   sanitize tests + verifier-added `coverage_test.go`), new
+   `internal/sourcectx/` skeleton (model/keys/hash + tests),
+   `Makefile` extended with package-level coverage gates and
+   `verify-generated`, `.github/workflows/state-redesign-tests.yml`
+   gates both targets. Zero Phase 1 file edits; zero spec edits.
+|- Verifier-attached fix on PR #168: implementer shipped at 81.7 %
+   catalogmodel coverage (under the spec-mandated ≥ 90 % floor)
+   because the Makefile only gated `Sanitize*` at 100 %. Verifier
+   added `internal/catalogmodel/coverage_test.go` (8 tests covering
+   `CanonicalEncodeString` / `CanonicalEqual` / `CatalogInputHash` +
+   edge paths) and hardened the Makefile with package-level ≥ 90 %
+   gates on both `internal/catalogmodel` and `internal/sourcectx`.
+|- Local gates: `go build`, `go vet`, `go test ./... -race`,
+   `make test-state-redesign`, `make verify-generated` all green.
+   Final coverage on main: catalogmodel **90.2 %**, sourcectx
+   **91.3 %**, Sanitize* **100 %**, statestore 95.7 %, revision
+   90.3 %, executionstate 90.0 %.
+|- Leaf-clean: `go list -deps ./internal/catalogmodel/...` shows no
+   `internal/*` imports outside the package itself + its `schema/gen`
+   subpackage. Phase 1 invariants preserved byte-for-byte.
+|- Secret sweep: zero hits in fixtures or logs.
+|- Spec proposals: none.
+|- Durable outcome: Phase 2 C0 ✅ COMPLETE on `main`. The pure-data
+   foundation (`internal/catalogmodel`) and resolver-injection seams
+   (`internal/sourcectx` types) are stable. `ai/state.json` rolled
+   forward to `current_task=0024 / active_milestone=C1`.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
