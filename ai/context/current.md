@@ -8,14 +8,60 @@ HTTP, no SaaS, no DB schema. `internal/catalogsync` ships only `Syncer`
 interface + `NoopSyncer` (C9).
 
 ## Active Milestone
-**C5 — Catalog CLI surface (`orun catalog *`).** C5 PR-1 CLOSED 2026-05-31
-via PR #176 (`96e3bbd`): `orun catalog refresh` + `orun catalog refs` +
-shared CLI foundation + two new pure seams. C5 PR-2 (`list`/`describe`/
-`tree`/`history`/`validate`, `diff` stubbed for C8) is the next implementer
-milestone; it reuses the shared RefSelector parser, §11 envelope, and both
-seams shipped in PR-1.
+**C5 — Catalog CLI surface (`orun catalog *`). ✅ FULLY CLOSED 2026-06-01.**
+C5 PR-1 closed 2026-05-31 via PR #176 (`96e3bbd`): `orun catalog refresh`
++ `orun catalog refs` + shared CLI foundation + two new pure seams. C5 PR-2
+closed 2026-06-01 via PR #177 (`3811d18`): the read surface (`list`/
+`describe`/`tree`/`history`/`validate`, `diff` stubbed for C8). A post-merge
+CI flap (R-008 executionstate coverage floor) was resolved via PR #178
+(`53ec66a`). Next milestone: **C6 — `orun plan` integration** (consume
+catalog snapshots in the planner).
 
-## Just Completed — Tasks 0036 + 0037 (C5 PR-1 — PR #176 MERGED, single-pass closure)
+## Just Completed — Task 0038 (C5 PR-2 read surface — PR #177 MERGED, single-pass closure)
+- **Status:** ✅ Implementer + Verifier in one session (full-ship-cycle
+  directive). PR #177 squash-merged into `main` at `3811d18` on 2026-06-01;
+  branch deleted. Report: `ai/reports/task-0038-verifier.md`.
+- **What shipped (`cmd/orun`):** six catalog read commands —
+  - `catalog_list.go` (§3) — enumerate components, deterministic sort.
+  - `catalog_describe.go` (§4) — single-component detail; **exit 4** on
+    ambiguous selector.
+  - `catalog_tree.go` (§5) — dependency-graph walk with cycle protection
+    (visited set).
+  - `catalog_history.go` (§7) — **read-only** event listing (event APPEND is
+    deferred to C7).
+  - `catalog_validate.go` (§6/§8) — structural validation; `--rebuild-indexes`
+    is a documented **no-op** (reserved for C8).
+  - `catalog_diff.go` (§6) — registered **stub**, **exit 5** (not-implemented;
+    full impl is C8).
+- All gated through the §11 JSON envelope (`{apiVersion, kind, data,
+  warnings}`) and the shared `parseCatalogSelector` → `catalogstore.RefSelector`
+  bridge from PR-1. New read seam `internal/catalogstore/reads.go` holds the
+  no-raw-FS rule (no `os`/`io`/`filepath`; CLI layer may use `filepath`).
+  `ReadCatalogGraph`/`CatalogGraphPath` take the **BARE** graph kind.
+- **Exit-code contract** via `main.go` `errors.As` on
+  `interface{ ExitCode() int }`: 0 success/reused · 1 validation · 2 resolver
+  internal · 3 statestore · 4 ambiguous · 5 diff stub · 6 missing component.
+- **Verifier adjudication:** PASS, no production fixes. Coverage held:
+  catalogstore 90.7 %, catalogresolve 90.9 %, sourcectx 91.1 %. cmd/orun at its
+  long-standing baseline (no enforced floor); new seam + read-surface E2E
+  covered.
+- **Post-merge CI / R-008 hotfix:** main CI on `3811d18` flapped —
+  `internal/executionstate` measured **89.6 %** vs its zero-margin **90.0 %**
+  floor (R-008 carry-forward; `CI` + conformance jobs passed, only the coverage
+  gate failed). Diagnosed as an environmental delta on identical source (local
+  90.0 % deterministic ×3 with `-race`), **not** a task-0038 regression.
+  Resolved via **PR #178** (`53ec66a`): four deterministic buffer tests
+  (`scanForNextRunSeq` non-run-key skip + max tracking, `listExecutionKeys`
+  multi-key dedup, `resolveExactByIndex` + `resolvePrefixScan` stale-index error
+  wraps) lifting coverage to **90.6 %** (+0.6pp headroom, stable ×3 `-race`).
+  Test-only, no production code. **Post-merge main CI on `53ec66a` FULLY GREEN**
+  (`state-redesign-tests` ✅, `CI` ✅, `orun remote-state conformance` ✅).
+  **R-008 CLOSED**; executionstate floor updated 90.0 % → 90.6 %.
+- **Carry-forward R-007 (still open):** `CatalogLocalIndexes`
+  owner/system/domain/type axes remain empty (data-model §9 under-specifies;
+  do not block future PRs on them).
+
+## Previously Completed — Tasks 0036 + 0037 (C5 PR-1 — PR #176 MERGED, single-pass closure)
 - **Status:** ✅ Implementer + Verifier in one session (full-ship-cycle
   directive). PR #176 squash-merged into `main` at `96e3bbd` on
   2026-05-31T15:17:22Z; branch deleted. Reports:

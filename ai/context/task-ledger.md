@@ -1751,3 +1751,42 @@ schema). Milestones C0–C9 per `implementation-plan.md`.
     verifier `ai/reports/task-0037-verifier.md`.
   - **Next:** Task 0038 = C5 PR-2 implementer (`orun catalog list|describe|
     tree|history|validate`; `diff` stubbed for C8).
+
+## Task 0038 — C5 PR-2 read surface (implementer + verifier, single-pass closure)
+- **Agent:** Implementer + Verifier (one session, full-ship-cycle directive)
+- **Prompt:** `ai/tasks/task-0038*.md`
+- **Status:** ✅ shipped via PR **#177**, squash-merged → `main` at `3811d18`
+  on 2026-06-01; branch `task-0038-catalog-cli-c5-pr2-read-surface` deleted.
+  **C5 FULLY CLOSED.**
+- **Objective:** the read side of `orun catalog *` per cli-surface.md.
+- **What shipped (`cmd/orun`):** six commands —
+  `catalog_list.go` (§3, deterministic sort), `catalog_describe.go` (§4,
+  exit 4 on ambiguous), `catalog_tree.go` (§5, cycle-protected walk),
+  `catalog_history.go` (§7, read-only — event APPEND is C7),
+  `catalog_validate.go` (§6/§8, `--rebuild-indexes` documented no-op reserved
+  for C8), `catalog_diff.go` (§6, registered stub, exit 5 not-implemented).
+  All through the §11 JSON envelope + shared `parseCatalogSelector` →
+  `catalogstore.RefSelector` bridge. New read seam
+  `internal/catalogstore/reads.go` (no-raw-FS). Exit-code contract via
+  `main.go` `errors.As` (0/1/2/3/4/5/6).
+- **Verifier outcome:** PASS, no production fixes. Coverage held —
+  catalogstore 90.7 %, catalogresolve 90.9 %, sourcectx 91.1 %. Static guards
+  (build/vet/`-race -count=1`/verify-generated/no-raw-FS) green. PR CI green on
+  HEAD `ce8e3d3`.
+- **Post-merge CI / R-008 hotfix:** main CI on `3811d18` flapped —
+  `internal/executionstate` measured 89.6 % vs its zero-margin 90.0 % floor
+  (R-008; `CI` + conformance jobs passed, only the coverage gate failed).
+  Diagnosed as an environmental delta on identical source (local 90.0 %
+  deterministic ×3 with `-race`), not a task-0038 regression. Fixed via PR
+  **#178** (squash `53ec66a`): four deterministic buffer tests
+  (`scanForNextRunSeq` non-run-key skip + max tracking, `listExecutionKeys`
+  multi-key dedup, `resolveExactByIndex` + `resolvePrefixScan` stale-index
+  error wraps) lifting coverage to 90.6 % (+0.6pp headroom, stable ×3 `-race`).
+  Test-only. **Post-merge main CI on `53ec66a` FULLY GREEN** (state-redesign-
+  tests ✅, CI ✅, orun remote-state conformance ✅). **R-008 CLOSED**;
+  executionstate floor updated 90.0 % → 90.6 %.
+- **Carry-forward R-007 (open):** `CatalogLocalIndexes` owner/system/domain/
+  type axes still empty (data-model §9 under-specifies; do not block on them).
+- **Reports:** `ai/reports/task-0038-verifier.md` (covers both passes).
+- **Next:** Task 0039 = C6 = `orun plan` integration (consume catalog
+  snapshots in the planner).
