@@ -50,46 +50,57 @@ lower coverage floors (`internal/statestore` 95.7 %, `internal/revision`
 90.3 %, `internal/executionstate` 90.0 %), do not remove preserved
 Phase 1 CLI workflows.
 
-## Current Task (0022)
-- **Agent:** Implementer
-- **Prompt:** `ai/tasks/task-0022.md`
-- **Branch:** `impl/task-0022-phase2-rollover`
-- **Objective:** docs-and-bookkeeping rollover from Phase 1 → Phase 2.
-- **PR Boundary:** spec pack + orchestrator.md + state.json + context-file
-  refresh + monolith disposition. **No Go code.**
-- **Constraints:** spec content shipped as-is (mechanical fixes only;
-  substantive changes go through `/ai/proposals/`); Phase 1 specs
-  untouched; Deferred Decision Protocol wording added to
-  `agents/orchestrator.md` (was missing); PR ≤ ~3 200 LOC, clean commit
-  history.
-- **Acceptance:** 12 spec docs present; orchestrator.md cites new spec;
-  state.json rotated; monolith archived under `_archive/`;
-  `go build ./...` + `go test ./...` green; required CI PASS on PR head.
+## Just Completed — Task 0022 (Phase 2 rollover)
+- **Status:** ✅ Verified PASS and merged via PR #167 (squash commit
+  `d435d8f`) on 2026-05-31. Verifier report:
+  `ai/reports/task-0022-verifier.md`.
+- **Outcome on `main`:** the 12-doc `specs/orun-component-catalog/`
+  pack is authoritative, `agents/orchestrator.md` carries the Phase 2
+  rewrite (active spec citation, C0–C9 milestones, Phase 1 demoted to
+  predecessor, Deferred Decision Protocol section), `ai/state.json`
+  rotated to `current_task=0023 / active_spec=specs/orun-component-catalog
+  / active_milestone=C0` with `phase_history.phase_1_orun_state_redesign`
+  recording M0–M6 / 2026-05-30 / PR #165 / coverage floors verbatim,
+  root-level `orun-catalog-full-design.md` archived under
+  `_archive/full-design-monolith.md`. Phase 1 coverage floors held
+  green throughout (statestore 95.7 %, revision 90.3 %, executionstate
+  90.0 %, triggerctx passes).
 
-## Next Task After 0022
-**Task 0023 — C0 code half.** Reads
-`specs/orun-component-catalog/{data-model.md, identity-and-keys.md, implementation-plan.md§C0, test-plan.md§1}`.
-Ships `internal/catalogmodel` (10 files per implementation-plan.md C0 list)
-with canonical-JSON encoder, golden roundtrip fixtures under
-`testdata/`, JSON-Schema generated under `internal/catalogmodel/schema/`
-via `go generate ./...`. Adds `internal/sourcectx` skeleton (types
-only). Extends `make test-state-redesign` to gate the new packages.
-Target: ≥ 90 % coverage on `internal/catalogmodel`; 100 % on
-`Sanitize*`; leaf-clean imports.
+## Current Task (0023)
+- **Agent:** Implementer (next cycle)
+- **Prompt:** to be emitted as `ai/tasks/task-0023.md`
+- **Branch:** `impl/task-0023-c0-code-half` (planned)
+- **Objective:** C0 code half. Land `internal/catalogmodel` (data
+  types + canonical-JSON encoder + JSON-Schema generator + golden
+  roundtrip fixtures under `testdata/`) and the `internal/sourcectx`
+  skeleton (types only — no resolver yet). Extend
+  `make test-state-redesign` to gate the new packages.
+- **Reads:** `specs/orun-component-catalog/{data-model.md,
+  identity-and-keys.md, implementation-plan.md §C0, test-plan.md §1}`.
+- **PR Boundary:** new packages `internal/catalogmodel/`,
+  `internal/sourcectx/` (types only), `Makefile` test-target
+  extension, generator wiring under `go generate ./...`. **No CLI
+  changes, no storage writes, no resolver logic.**
+- **Acceptance:** `go build ./...` + `go vet ./...` + `go test ./...`
+  green; catalogmodel decode/encode roundtrip per data-model.md
+  schema; `Sanitize*` 100 % coverage; `internal/catalogmodel`
+  imports zero other `internal/` packages (leaf-clean); ≥ 90 %
+  coverage on `internal/catalogmodel`; Phase 1 coverage floors
+  preserved.
 
 ## Repo Checkpoint
 
 | Attribute | Value |
 |---|---|
-| Branch (local checkout) | `impl/task-0022-phase2-rollover` (PR pending) |
-| `main` tip | `b4178dd` — release-notes PR #166 (orun-state-redesign Phase 1 / v2.10.0) on 2026-05-31 |
-| Open PRs | Task 0022 (this PR) — Phase 2 rollover, docs-and-bookkeeping only |
-| Repo health | 🟢 Green — Phase 1 closed; Phase 2 rolling over |
-| Last verified | 2026-05-31 (Task 0022 rollover branch) |
+| Branch (local checkout) | `main` (clean) |
+| `main` tip | `d435d8f` — Task 0022 / Phase 2 rollover (PR #167) on 2026-05-31 |
+| Open PRs | none |
+| Repo health | 🟢 Green — Phase 2 rolled over; ready for Task 0023 |
+| Last verified | 2026-05-31 (Task 0022 verifier PASS, merged) |
 | Active phase | Phase 2 (orun-component-catalog) |
-| Active milestone | C0 (spec-landing half = Task 0022; code half = Task 0023) |
-| Tasks completed | 0001, 0002, 0003, 0004, 0005, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0018, 0019, 0020, 0021 (19 total) |
-| Current task | **0022 (Phase 2 rollover)** — implementer in progress |
+| Active milestone | C0 (spec-landing half = Task 0022 ✅ merged; code half = Task 0023 next) |
+| Tasks completed | 0001, 0002, 0003, 0004, 0005, 0007, 0008, 0009, 0010, 0011, 0012, 0013, 0014, 0015, 0016, 0018, 0019, 0020, 0021, 0022 (20 total) |
+| Current task | **0023 (C0 code half)** — orchestrator to scope next cycle |
 
 ---
 

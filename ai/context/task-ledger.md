@@ -989,6 +989,41 @@ schema). Milestones C0–C9 per `implementation-plan.md`.
    `internal/sourcectx` skeleton + JSON-Schema generator) becomes the
    next implementer task.
 
+## Task 0022 (Verifier pass)
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0022-verifier.md`
+|- Status: **PASS** + merged (2026-05-31). PR #167 squash commit on
+   `main`: `d435d8f`. PR-CI on rebased head `b58e76f`:
+   `CI / Orun Plan` SUCCESS (run `26703688956`); matrix leg
+   `${{ matrix.component }}/${{ matrix.env }}` SKIPPED (legitimate
+   empty-matrix path for a docs-only diff). Original implementer head
+   `1016a2b` PR-CI was also SUCCESS (run `26703506317`).
+|- Implementation: PR `https://github.com/sourceplane/orun/pull/167`,
+   branch `impl/task-0022-phase2-rollover` (deleted post-merge).
+|- Reports: implementer at `ai/reports/task-0022-implementer.md`,
+   verifier at `ai/reports/task-0022-verifier.md`.
+|- Scope (verified): zero Go in diff; 12 spec docs +
+   `_archive/{full-design-monolith,README}.md` present;
+   `agents/orchestrator.md` carries Phase 2 rewrite (active spec,
+   C0–C9, Phase 1 demoted, Deferred Decision Protocol present);
+   `ai/state.json` shape correct with `phase_history` block recording
+   coverage floors verbatim; Phase 1 ledger byte-identical (0
+   deletion lines); `ai/waiting_for_input.md` is a clean "no input"
+   note.
+|- Local gates (on PR head): `go build ./...`, `go vet ./...`,
+   `go test ./... -count=1 -timeout 600s`, `make test-state-redesign`
+   all green. Coverage floors held verbatim — `internal/statestore`
+   95.7 %, `internal/revision` 90.3 %, `internal/executionstate`
+   90.0 %, `internal/triggerctx` passes.
+|- Secret sweep: zero hits.
+|- Spec proposals: none required.
+|- Durable outcome: Phase 2 (`specs/orun-component-catalog/`) is the
+   active authoritative spec on `main`. Phase 1 invariants and
+   coverage floors preserved. `ai/state.json.current_task` rolled
+   forward to `0023`; `task_agent` flipped to the verifier report
+   path. Repo is clean and ready for the C0 code half.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign
