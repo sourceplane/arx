@@ -952,6 +952,43 @@ history; reports/prompts are no longer present in the working tree.
 - Carry-forward (deferred per task-0021 §non-goals): MirrorModeHardlink debug-fold decision; RunnerHooks.AfterStateUpdate async-mirror evaluation; `--persist-revision` flag wiring (Phase 2); Option B trigger-name resolver branch (`ai/proposals/task-0019-spec-update.md`); `--prune-legacy` (Phase 2 §6).
 - Unblocks: Phase 2 work and the deferred housekeeping list above. Next session re-scopes from the candidates documented in `ai/context/current.md`.
 
+---
+
+# Phase 2 — orun-component-catalog
+
+Task numbering continues. Phase 2 ships the SourceSnapshot/CatalogSnapshot
+content-addressed component-catalog model wrapping the Phase 1 trigger /
+revision / execution lineage. Authoritative spec:
+`specs/orun-component-catalog/`. Local-only (no HTTP, no SaaS, no DB
+schema). Milestones C0–C9 per `implementation-plan.md`.
+
+## Task 0022
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0022.md`
+|- Status: implementer in progress (2026-05-31) — branch `impl/task-0022-phase2-rollover`
+|- Milestone: C0 (spec-landing half; the C0 code half ships in Task 0023)
+|- Objective: land the Phase 2 rollover as a single docs-and-bookkeeping
+   PR — commit `specs/orun-component-catalog/` (12 docs), the rewritten
+   `agents/orchestrator.md`, and the rotated `ai/state.json`; refresh
+   `ai/context/current.md` and this ledger; dispose of the root-level
+   `orun-catalog-full-design.md` monolith (delete or archive under
+   `_archive/` with a README); reset `ai/waiting_for_input.md`.
+|- Scope boundary: docs and state files only. **No Go code, no CLI
+   changes, no `internal/catalogmodel`, no JSON-Schema generator** —
+   those are Task 0023 / C0 code half.
+|- Acceptance: 12 spec docs present on branch; `agents/orchestrator.md`
+   cites the new spec pack and milestones C0–C9; `ai/state.json` has
+   `active_spec=specs/orun-component-catalog`, `active_milestone=C0`,
+   and the `phase_history.phase_1_orun_state_redesign` block;
+   monolith removed from repo root; `go build ./...` and `go test ./...`
+   green (sanity); required CI checks PASS on PR head.
+|- Expected outcome: Phase 2 is on `main` with an authoritative spec
+   pack, an orchestrator prompt that points at it, and clean state
+   files. Task 0023 (C0 code half — `internal/catalogmodel` +
+   `internal/sourcectx` skeleton + JSON-Schema generator) becomes the
+   next implementer task.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign

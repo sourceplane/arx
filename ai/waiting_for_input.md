@@ -2,9 +2,18 @@
 
 **Status:** none — `false` in `ai/state.json`.
 
-Task 0020 (M5.d hidden `orun state migrate` command) closed via PR #164 →
-squash-commit `17ef788` on 2026-05-30T16:03:59Z. **M5 milestone closed.**
+Phase 1 (`specs/orun-state-redesign/`, M0–M6) closed via PR #165 →
+release-notes PR #166 (`b4178dd`). Phase 2 begins now.
 
-Next orchestrator cycle: emit **Task 0021 = M6 implementer** prompt
-(E2E + property gates per `specs/orun-state-redesign/implementation-plan.md`).
+Active spec: `specs/orun-component-catalog/` (Phase 2, local-only
+SourceSnapshot/CatalogSnapshot model). Active milestone: **C0**.
+
+Next orchestrator cycle: emit **Task 0022 = Phase 2 rollover PR**
+(docs-and-bookkeeping only — land the 12-doc spec pack, the rewritten
+`agents/orchestrator.md`, the rotated `ai/state.json`, refresh the
+context files, and dispose of the root-level `orun-catalog-full-design.md`
+monolith). After 0022 merges, Task 0023 ships C0's code half
+(`internal/catalogmodel` + `internal/sourcectx` skeleton + JSON-Schema
+generator).
+
 No active blockers or pending user decisions.
