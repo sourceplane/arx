@@ -1,0 +1,35 @@
+Enumerate a component's execution history from the catalog-local index.
+
+Rows are sorted newest-first and capped at --limit (default 50). The trigger,
+profile, and environment filters narrow the set. A component that has never
+executed prints an empty history and exits 0.
+
+Examples:
+  orun catalog history api-edge
+  orun catalog history api-edge --source main
+  orun catalog history api-edge --trigger github-push-main
+  orun catalog history api-edge --limit 10 --json
+
+Exit codes:
+  0  History rendered (possibly empty).
+  1  Invalid selector or missing component argument.
+  3  StateStore failure.
+  6  Catalog not found.
+
+Usage:
+  orun catalog history <component> [flags]
+
+Flags:
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --environment string        Only executions in this environment
+      --json                      Stable machine-readable output
+      --limit int                 Maximum number of rows (default 50)
+      --profile string            Only executions of this profile
+      --source string             Alias for --catalog-source
+      --trigger string            Only executions from this trigger
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")

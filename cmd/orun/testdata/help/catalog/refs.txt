@@ -1,0 +1,21 @@
+List every catalog ref with the source and catalog snapshot keys it
+resolves to.
+
+Refs include the canonical current/main/latest pointers plus any
+branches/<name> and prs/<n> refs written by 'orun catalog refresh'. Output is
+sorted by ref name. An empty store prints an empty list (exit 0).
+
+Examples:
+  orun catalog refs
+  orun catalog refs --json
+
+Usage:
+  orun catalog refs [flags]
+
+Flags:
+      --json   Stable machine-readable output
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")

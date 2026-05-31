@@ -1,0 +1,34 @@
+Re-resolve the current workspace and report the typed validation issues.
+
+validate is read-only: it runs the resolver against the live workspace and
+prints the §6/§8 validation result list without persisting a snapshot. Any
+error fails with exit 1; warnings pass with exit 0 unless --strict promotes
+them to errors.
+
+Examples:
+  orun catalog validate
+  orun catalog validate --strict
+  orun catalog validate --json
+
+Exit codes:
+  0  No errors (warnings allowed unless --strict).
+  1  At least one validation error (or any warning under --strict).
+  2  Resolver internal error.
+  3  StateStore failure.
+
+Usage:
+  orun catalog validate [flags]
+
+Flags:
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --catalog-strict            Promote validation warnings to errors
+      --json                      Stable machine-readable output
+      --rebuild-indexes           C8: reserved, currently a no-op
+      --source string             Alias for --catalog-source
+      --strict                    Alias for --catalog-strict
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")

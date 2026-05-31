@@ -1,0 +1,30 @@
+Compare two catalog snapshots.
+
+NOT YET IMPLEMENTED. The diff engine (changed / added / removed components and
+graph changes) lands in milestone C8. This command is registered now so the
+flag grammar and subcommand index are stable; it currently prints a
+not-implemented notice and exits 5.
+
+Examples (future):
+  orun catalog diff --base main --head current
+  orun catalog diff api-edge --base main --head pr-139
+  orun catalog diff --json
+
+Exit codes:
+  5  Not yet implemented (C8). Will become: 0 on success, 5 on resolver failure.
+
+Usage:
+  orun catalog diff [component] [flags]
+
+Flags:
+      --base string               Base snapshot selector (C8)
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --head string               Head snapshot selector (C8)
+      --json                      Stable machine-readable output (C8)
+      --source string             Alias for --catalog-source
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")

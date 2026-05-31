@@ -1,0 +1,37 @@
+List the components in the selected catalog.
+
+Resolves the catalog via the shared source selector (default 'current') and
+prints one row per component with its type, owner, system, and last execution
+status. The filter flags narrow the set; output is sorted by component key.
+
+Examples:
+  orun catalog list
+  orun catalog list --source main
+  orun catalog list --owner team/platform-edge
+  orun catalog list --type cloudflare-worker
+  orun catalog list --json
+
+Exit codes:
+  0  Listing rendered (possibly empty).
+  1  Invalid selector.
+  3  StateStore failure.
+  6  Catalog not found.
+
+Usage:
+  orun catalog list [flags]
+
+Flags:
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --domain string             Only components in this domain
+      --json                      Stable machine-readable output
+      --owner string              Only components with this owner
+      --source string             Alias for --catalog-source
+      --status string             Only components whose last execution has this status
+      --system string             Only components in this system
+      --type string               Only components of this type
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")

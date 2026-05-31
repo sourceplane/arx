@@ -1,0 +1,33 @@
+Show the full resolved manifest for one component in the selected catalog.
+
+The component may be given as a bare name (resolved within the catalog) or as
+a fully-qualified component key (namespace/repo/name) for an exact match. A
+bare name that matches components in more than one repo exits 4 with the list
+of candidate keys.
+
+Examples:
+  orun catalog describe api-edge
+  orun catalog describe api-edge --source main
+  orun catalog describe sourceplane/orun/api-edge
+  orun catalog describe api-edge --json
+
+Exit codes:
+  0  Component found and rendered.
+  1  Invalid selector or missing component argument.
+  3  StateStore failure.
+  4  Ambiguous bare name across repos.
+  6  Catalog or component not found.
+
+Usage:
+  orun catalog describe <component> [flags]
+
+Flags:
+      --catalog-snapshot string   Bypass refs; pin to an explicit catalogSnapshotKey
+      --catalog-source string     Resolve catalog by ref selector (current|main|latest|branches/<name>|prs/<n>|cat-<key>)
+      --json                      Stable machine-readable output
+      --source string             Alias for --catalog-source
+
+Global Flags:
+      --all                 Disable CWD-based component scoping; process all components
+  -c, --config-dir string   Config directory for JobRegistry definitions (or set ORUN_CONFIG_DIR; use * or ** for recursive scanning)
+  -i, --intent string       Intent file path (auto-discovered if not set) (default "intent.yaml")
