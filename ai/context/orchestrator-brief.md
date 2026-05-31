@@ -1,123 +1,133 @@
-# Orchestrator Brief — Cycle 6
+# Orchestrator Brief — Cycle 7
 
 ## Cache Fingerprint
 - generated_at: 2026-05-31
-- cycle_seq: 6
-- head_sha: c2d7b9d72ddc33fc86920c3ed06227ddb8f94123
-- state_json_sha256: 56e2d46ddc1e075b8cb2e7db34b8045b2b8c7c4d3d173378cfc23c70ef2618bf
-- merged_pr_count: 167 (gh pr list --state merged --limit 200 | wc -l)
-- open_pr_count: 0
-- worktree_dirty: ai/ only (this brief + state.json + current.md +
-  task-ledger.md + ai/tasks/task-0032.md + ai/reports/task-0031-verifier.md
-  + ai/reports/task-0030-implementer.md (relocated from reports/))
+- cycle_seq: 7
+- head_sha: fdf72f50f77896b58af7fc8f7f806b222fe9358f
+- state_json_sha256: 31838ce94096cc2ff8568af9a2e4e326b5b143a92dc21446fe56dad17cbaa932
+- merged_pr_count: 167 (gh pr list --state merged --limit 1000 | wc -l)
+- open_pr_count: 1 (PR #174)
+- last_task_agent: ai/tasks/task-0033-verifier.md
+- last_worker_result: implementer-pass (Task 0032 → PR #174)
+- worktree_dirty: ai/ only (state.json + current.md + task-ledger.md +
+  ai/tasks/task-0033-verifier.md + this brief; bookkeeping commit
+  pending after this write)
 
-If any value above no longer matches the live repo at the start of the
-next cycle, treat this brief as stale and re-derive from `ai/state.json`
-+ `git log` + `gh pr list`.
+## Cache Validity Rule
+The next cycle MAY skip the cold read iff ALL of:
+- head_sha matches `git rev-parse HEAD` (will advance once cycle-7
+  bookkeeping commit lands; expected new HEAD = next-tip after
+  `ai: cycle 7 — Task 0032 implementer-pass (PR #174); scope Task 0033 verifier`).
+- state_json_sha256 matches recomputed hash.
+- merged_pr_count = 167; open_pr_count expected 1 (PR #174 still open)
+  OR 0 (verifier merged PR #174 — that DOES invalidate this brief
+  because cycle 8 must scope Task 0034, not re-read this one).
+- cycle_seq within 3 of next cycle's seq.
+Otherwise: discard this brief and do a full cold read.
 
-## Where We Are
-Phase 2 (`specs/orun-component-catalog/`), Milestone C4. PR-1
-(Task 0030 / PR #173 / squash `c2d7b9d`) merged 2026-05-31. The
-`internal/catalogstore` package is online with paths, errors, and the
-body writer (steps A + B from `catalog-store.md` §3). Three Writer
-methods remain stubbed with typed `ErrNotImplemented` and are the
-exact subject of PR-2.
+## Mental Model
+Phase 2 / Milestone C4 / mid-flight. PR-1 (paths + writer Steps A & B)
+landed cleanly at 90.7 % coverage. PR-2 (Steps C & D — refs, global
+indexes, component events + `ErrRefStale`) is now open as PR #174,
+CI green and MERGEABLE. The implementer shipped a substantial,
+correctly-shaped PR (D.1–D.6 ordering, mergeComponentGlobalIndex
+policy, seq.lock allocator with 16-retry budget) but **self-reports
+catalogstore coverage at 85.3 %** — 5.4 pp below the floor PR-1
+established and 5.7 pp below Task 0032's stated target of ≥91 %.
 
-`Resolver` interface is also stubbed (5 methods) and stays stubbed
-through PR-2 — those bodies are PR-3 scope.
+This is the cycle's only real tension. Mechanical cause is plausible
+(stub-pin denominator shifted when 3 stubs became real implementations,
+diluting the percentage even with new tests added) but the floor
+regression is real either way. The verifier prompt (Task 0033) makes
+this an explicit Required Outcome (11) with a three-branch decision
+tree: ≥91 PASS / 90–91 PASS-with-note / <90 HARD FAIL → verifier-
+attached fix preferred, else Task 0033.1 implementer-remediation.
+The verifier's first action is to re-run the cover and pick a branch.
 
-## What Just Happened (Cycle 5 + 6 combined)
-- Cycle 5: Task 0030 implementer pushed PR #173. Orchestrator scoped
-  Task 0031 (verifier on PR #173). Single bookkeeping commit on `main`
-  (`af2a67d`).
-- Cycle 6 (this cycle): Verifier executed Task 0031 inline.
-  Re-ran all 12 Required Outcomes:
-  - PR boundary: 8 `internal/catalogstore/` files only ✅
-  - No raw FS imports ✅ (grep returns 0 matches)
-  - `go vet ./...`, `go build ./...`, `go test ./... -race -count=1`,
-    `make verify-generated` all green ✅
-  - `internal/catalogstore` coverage 90.7 % under `-race -count=1` ✅
-  - Phase 1 floors held byte-for-byte (statestore 95.7, revision 90.3,
-    executionstate 90.0) ✅
-  - Phase 2 floors held (catalogmodel 91.1, sourcectx 91.1,
-    catalogresolve 90.9) ✅
-  - Code-path inspection: `CatalogGraphKinds()` drives B.2 ordering;
-    spy-order test asserts B.1→B.2→B.3→B.4 with fixed graph order;
-    pre-flight `ErrInputsInconsistent` exercised for cat↔src,
-    manifest↔src, manifest↔cat shapes (no writes before fail);
-    double-wrap mismatch sentinels chain `errors.Is` to BOTH typed
-    sentinel and `statestore.ErrExists` ✅
-  - Stub-pin test locks all 8 deferred surfaces (3 Writer + 5 Resolver) ✅
-  - B.4 uses plain `Write` not CAS (matches spec — local indexes are
-    rebuildable) ✅
-  - PR #173 was MERGEABLE/CLEAN; kiox guards green; merged via
-    `gh pr merge 173 --squash --delete-branch`.
-- Verifier-only fix applied post-merge: relocated implementer report
-  from non-canonical `reports/task-0030-catalogstore-c4-pr1.md` to
-  `ai/reports/task-0030-implementer.md` and removed the stray
-  `reports/` directory.
-- Cycle 6 (continued): Orchestrator scoped Task 0032 (C4 PR-2
-  implementer). State files updated; bookkeeping commit pending.
+Secondary tension: spec §5 advises retry budget = 8; PR-2 standardises
+on 16. Inline rationale is sound (taxonomy unification with new
+`ErrRefStale` sentinel). Likely a one-line verifier note rather than
+a spec proposal.
 
-## Open Questions / Unresolved
-None blocking. PR-2 implementer may surface a minor question about
-which sentinel name to use for retry-exhausted (single `ErrRefStale`
-covering refs + global-index + event-allocator, vs split sentinels).
-The Task 0032 prompt allows either — must be documented in the report.
+## Active Spec Pointer
+- spec: specs/orun-component-catalog
+- milestone: C4 (`internal/catalogstore` Writer + Resolver)
+- milestone_done_when_remaining:
+  - C4 PR-2 (refs/indexes/events) merged with floors held — PENDING
+    (Task 0033 verifier slot).
+  - C4 PR-3 (`resolver.go` + fallback chain `current → latest → main`
+    + 5 Resolver methods + `RebuildIndexes`) — PENDING.
+- next_milestone_after: C5 — Catalog CLI surface (`orun catalog *`
+  subcommands per `cli-surface.md`). Unlocked once C4 PR-3 merges.
+
+## Open PRs
+- #174 `feat(catalogstore): C4 PR-2 — refs, global indexes, component events`
+  — implementer (task-0032) — green CI / MERGEABLE / CLEAN —
+  awaiting Task 0033 verifier; coverage adjudication is the gating
+  question.
+
+## Deferred Backlog
+_none_ — `/ai/deferred.md` carries no entries this cycle. All
+roadmap candidates remain human-independent.
+
+## Active Proposals
+_none_ — no `/ai/proposals/**` entries. Task 0033 may emit
+`ai/proposals/task-0033-spec-update.md` if the verifier reads spec
+§5 retry-budget wording as prescriptive rather than advisory; that
+proposal would auto-create on the verifier branch and drive the
+PASS/FAIL decision.
+
+## Last Decision Rationale
+Why scope a verifier (Task 0033) and not a remediation prompt:
+- PR #174 is OPEN with green CI, MERGEABLE/CLEAN — there is real
+  work for the verifier to do (15 outcomes), and the coverage gap
+  may be mechanical (stub-pin denominator shift) rather than a
+  test-quality regression.
+- Surfacing the coverage flag in the verifier prompt (Outcome 11)
+  rather than auto-failing the PR preserves the verifier's ability
+  to apply a verifier-attached fix in path (a), which is the cheaper
+  resolution and matches PR-1's verifier-attached-fix precedent
+  (PR-1 verifier moved the implementer report to canonical path).
+- Generating Task 0033.1 prematurely would waste a cycle if the
+  verifier can land a 6–10-test top-up to recover ≥ 90 %.
+- Three-branch decision tree avoids "silent merge below floor" while
+  keeping the verifier's hands on the wheel.
+- Retry-budget spec drift folded into the same verifier task because
+  it shares review surface and the implementer's inline rationale is
+  documented; no need to fork a separate proposal-review cycle yet.
 
 ## Next Cycle Hypothesis
-Implementer ships Task 0032 → opens PR (likely #174) on branch
-`task-0030-catalogstore-c4-pr2` (or similar). PR-2 surface:
+- if **verifier-pass on PR #174 (Outcome 11 branch a, ≥91 %)**:
+  cycle 8 scopes Task 0034 = C4 PR-3 implementer. Surface:
+  `internal/catalogstore/{resolver.go, resolver_test.go}` plus
+  `RebuildIndexes` in `writer.go` (or sibling). All 5 Resolver
+  methods + fallback chain `current → latest → main`. Closes C4.
+- if **verifier-pass via attached-fix (branch c → a)**:
+  same as above, but cycle 7 ledger reflects verifier-added test
+  files; coverage delta recorded in verifier report.
+- if **verifier-pass with coverage 90 ≤ x < 91 (branch b)**:
+  cycle 8 scopes Task 0034 with explicit "PR-3 must restore ≥ 91 %
+  buffer" added to acceptance.
+- if **verifier-fail (branch c, no attached fix)**:
+  cycle 8 scopes Task 0033.1 = implementer-fix on the same PR
+  branch (add focused tests for uncovered branches in
+  mergeComponentGlobalIndex / retry-exhaust paths / seq.lock
+  concurrency). PR #174 stays open until coverage clears 90 %.
+- if **spec-proposal route on retry-budget**:
+  cycle 8 reviews `ai/proposals/task-0033-spec-update.md`,
+  decides accept/revise/defer. Most likely outcome: accept (codify
+  16) and fold into a cli-surface.md / catalog-store.md update
+  during C5 docs polish.
 
-- New: `refs.go`, `refs_test.go`, `indexes.go`, `indexes_test.go`,
-  `events.go`, `events_test.go`.
-- Edited: `errors.go` (+`ErrRefStale`), `store.go` (replace 3 stubs),
-  `store_test.go` (drop 3 from stub-pin), `writer_test.go` (extend
-  spy `CompareAndSwap`).
-
-Coverage on `internal/catalogstore` should rise from 90.7 % to ≥ 91 %.
-
-If PR opens green and MERGEABLE/CLEAN, cycle 7 = Task 0033 verifier.
-If PR fails or stalls, cycle 7 = Task 0033 = remediation note in the
-same PR (don't open a new PR).
-
-After PR-2 is merged, cycle 8 will scope Task 0034 (C4 PR-3
-implementer — `resolver.go` reader fallback chain
-`current → latest → main`, all 5 Resolver methods, `RebuildIndexes`).
-That closes C4 and unlocks C5 (CLI surface).
-
-## Hand-off Pointers
-- Active task agent: `ai/tasks/task-0032.md` (implementer prompt).
-- Spec sources: `specs/orun-component-catalog/catalog-store.md` §3.C,
-  §3.D, §6.
-- PR-2 baseline: `internal/catalogstore/store.go` (frozen `RefUpdate`
-  / `GlobalIndexUpdate` shapes), `writer.go` (`createOrReconcile`
-  pattern, `preflightCatalogInputs`, encoder choice — `PrettyEncode`
-  for body writes), `errors.go` (taxonomy with double-wrap pattern).
-
-## Working Notes for Next Orchestrator Cycle
-1. Warm-boot: read this brief, `ai/state.json`, `ai/context/current.md`
-   top-of-file, last entry of `ai/context/task-ledger.md`. Skill:
-   `orun-saas-orchestration`.
-2. Fingerprint check: HEAD should be ≥ `c2d7b9d` plus this cycle's
-   bookkeeping commit. If `ai/state.json` sha matches the value above,
-   no surprise mutations occurred.
-3. Expected state: 0 open PRs (between cycles) OR 1 open PR if
-   implementer has pushed Task 0032's PR. If 1 open PR ready for
-   verification, scope Task 0033 verifier.
-4. If implementer has not yet pushed (still working): no orchestrator
-   action this cycle. Brief becomes a no-op observation.
-
-## Risk Notes
-- `internal/catalogstore` floor of 90 % has only 0.7 % buffer. PR-2
-  must add net coverage to keep buffer ≥ 1 % for PR-3 headroom.
-  Task 0032 prompt enforces ≥ 91 %.
-- Spy `CompareAndSwap` extension is the most error-prone part of PR-2
-  test plumbing. Implementer prompt explicitly requires
-  `cas:<path>:<oldRev>` trace entries and conflict-injection, with
-  byte-identical-trace determinism test.
-- The seq.lock allocator path is not pinned by spec to an exact
-  filename — Task 0032 prompt suggests
-  `<srcKey>/<catKey>/history/components/<name>/events/seq.lock`
-  (natural co-location with events). If implementer disagrees, they
-  must document in the report; verifier confirms.
+## Stale Signals
+- New PR opened on the repo (other than #174) — invalidates
+  `open_pr_count`.
+- `main` advances past `fdf72f5` by anything other than the cycle-7
+  bookkeeping commit before next cycle starts.
+- New file under `ai/proposals/` (e.g. retry-budget proposal lands).
+- `git log` shows PR #174 squash-merge commit — verifier passed,
+  cycle 8 must cold-read to scope Task 0034.
+- A user redirect away from C4 PR-3 (e.g. "skip resolver, go straight
+  to CLI") — would force cold read and update of Active Spec Pointer.
+- Any drop in a sibling coverage floor — invalidates the "floors
+  held byte-for-byte" precondition this brief assumes.

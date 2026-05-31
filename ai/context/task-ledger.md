@@ -1458,3 +1458,76 @@ schema). Milestones C0–C9 per `implementation-plan.md`.
   Phase 1. `agents/orchestrator.md` and `specs/orun-state-redesign/` set the
   new authoritative spec pack. `ai/` directory rebuilt by orchestrator under
   the new lineage.
+
+## Task 0032 — UPDATE (cycle 7, implementer pass)
+- ✅ Implementer pass complete on 2026-05-31. PR #174 opened on branch
+  `task-0032-catalogstore-c4-pr2`. CI 3/3 SUCCESS, MERGEABLE/CLEAN.
+  Diff +1602 / -52 across 14 files (all `internal/catalogstore/`).
+  Implementer report: `ai/reports/task-0032-implementer.md`.
+- Surface delivered: `refs.go` (D.1–D.6), `indexes.go` (C.1–C.3 with
+  `mergeComponentGlobalIndex`), `events.go` (`AppendComponentEvent`
+  + seq.lock allocator), `errors.go` (`ErrRefStale` sentinel).
+- Retry budgets unified at 16 across refs, indexes C.3, and seq.lock
+  (spec §5 advises 8 — verifier to adjudicate spec proposal need).
+- Stub-pin updated: `TestStubsReturnErrNotImplemented` narrowed to 5
+  Resolver methods; new `TestPR2WritersImplemented` pins 3 writers.
+- ⚠️ Coverage flag: implementer self-reports `internal/catalogstore`
+  at 85.3 % vs Task 0032 acceptance ≥ 91 % with floor 90 % (PR-1 was
+  90.7 %). Three-branch adjudication owned by Task 0033 verifier.
+
+## Task 0033 — C4 PR-2 verifier (PR #174)
+- **Agent:** Verifier
+- **Prompt:** `ai/tasks/task-0033-verifier.md`
+- **Status:** scoped and ready to begin (2026-05-31)
+- **Objective:** Verify PR #174 against Task 0032's acceptance criteria.
+  PASS = merge via Verifier Merge Protocol; FAIL = leave PR open with
+  blockers (likely coverage-axis remediation).
+- **PR boundary:** PR #174 only. Verifier-only commits allowed for
+  Outcome 11 path (a) coverage top-up tests, doc polish required to
+  PASS, and an optional retry-budget spec proposal.
+- **15 Required Outcomes:**
+  1. PR-boundary audit (only `internal/catalogstore/` + implementer
+     report touched; no `resolver.go`).
+  2. `WriteRefs` D.1→D.6 ordering, conditional sub-steps (Source/
+     Catalog nil-skip, Branch/PR conditional emission), spy test.
+  3. Branch sanitisation via `catalogmodel.SanitizeBranch` (accept
+     + reject inputs tested).
+  4. `WriteGlobalIndexes` C.1/C.2 plain `Write`, C.3 deterministic
+     ascending CAS — read code, not just tests.
+  5. `mergeComponentGlobalIndex` per-clause tests (identity-fields,
+     Latest/Main freshness, Previews union+sort).
+  6. CAS retry budget = 16 at all three sites; exhaustion returns
+     `ErrRefStale` chained to `statestore.ErrConflict`; both
+     `errors.Is` succeed.
+  7. `AppendComponentEvent` seq.lock allocator: `CreateIfAbsent next=2`
+     → CAS+1 retry; immutable event body; concurrency test for
+     gap-free strictly-increasing indices.
+  8. `seq.lock` path location matches PR-1 hypothesis or is documented.
+  9. `ErrRefStale` taxonomy: package-level sentinel, multi-target
+     `errors.Is` pattern.
+  10. Stub-pin tests updated (Resolver-only) AND new
+      `TestPR2WritersImplemented` confirms 3 writers do not return
+      `ErrNotImplemented`.
+  11. **Coverage adjudication (FLAGGED):** ≥91 PASS / 90–91
+      PASS-with-note / <90 HARD FAIL → verifier-attached fix
+      (preferred) or Task 0033.1 remediation.
+  12. Phase 1 (statestore 95.7, revision 90.3, executionstate 90.0)
+      and Phase 2 (catalogmodel 91.1, sourcectx 91.1, catalogresolve
+      90.9) coverage floors held byte-for-byte.
+  13. Static guards: `go vet`, `go build`, `go test ./... -race`,
+      `make verify-generated`, no raw FS imports.
+  14. CI green at merge time.
+  15. kiox / orun guards (no-op acceptable).
+- **Spec drift to flag:** retry-budget 8→16. Inline justification +
+  advisory wording → one-sentence note typically suffices; only
+  escalate to a spec proposal if spec is read as prescriptive.
+- **On PASS:** `gh pr merge 174 --squash --delete-branch`,
+  fast-forward `main`, write report, scope Task 0034 (C4 PR-3
+  implementer — `resolver.go` + fallback chain + `RebuildIndexes`).
+- **On FAIL:** leave PR open with blockers; most likely path is a
+  coverage-recovery fix (verifier-attached) or remediation task
+  Task 0033.1.
+- **Expected outcome:** PR #174 merged with `internal/catalogstore`
+  Writer surface complete (Steps A/B/C/D), `ErrRefStale` in error
+  taxonomy, `internal/catalogstore` coverage ≥ 90 % (≥ 91 % preferred),
+  all sibling floors held. C4 PR-3 (resolver) becomes next slot.
