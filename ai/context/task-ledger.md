@@ -1071,6 +1071,154 @@ schema). Milestones C0–C9 per `implementation-plan.md`.
    (`internal/sourcectx` types) are stable. `ai/state.json` rolled
    forward to `current_task=0024 / active_milestone=C1`.
 
+## Task 0024
+
+|- Agent: Implementer + Verifier (closed inline cycle)
+|- Prompt (impl): `ai/tasks/task-0024.md`
+|- Prompt (verifier): `ai/tasks/task-0024-verifier.md`
+|- Reports: `ai/reports/task-0024-implementer.md`,
+   `ai/reports/task-0024-verifier.md`
+|- Status: ✅ verified PASS and merged via PR #169 (squash `b50d799`) on
+   2026-05-31.
+|- Milestone: C1 — `internal/sourcectx` resolver.
+|- Scope (verified): `ResolveSourceSnapshot(ctx, opts) (WorkspaceState, error)`
+   with injected `Git` / `Clock` / `Filesystem` adapters. `WorkspaceState`
+   populated from adapters: `headRevision`, `treeHash`, `dirtyHash`,
+   `catalogInputHash`. Scope detection (branch / PR / tag / local-dirty
+   / local-nogit / ci-event). Default Git adapter ships. Clean / dirty /
+   no-git / PR-injected / branch / tag fixtures all produce the
+   spec-documented `SourceSnapshotKey` shapes. T-IDK-3 + T-IDK-4
+   property tests included. Leaf-clean — no `internal/sourcectx`
+   import outside its own tree.
+|- Verifier-attached fix on PR #169: pre-existing C0 catalogmodel
+   coverage flake at the 90 % gate (rapid-driven property tests
+   sometimes failed to draw `\b`/`\f` strings, dropping
+   `writeQuotedString` coverage from 100 % to 93.5 % and tipping the
+   package below 90 %). Verifier added
+   `internal/catalogmodel/coverage_test.go::TestCanonicalEncodeStringEscapeBranches`
+   (16 deterministic cases covering every escape branch + U+2028 /
+   U+2029 / multibyte UTF-8). Post-fix 20-run spread: 91.1 % × 19,
+   90.6 % × 1. Sanitize* stays at 100.0 %.
+|- Local gates on main post-merge: `go build`, `go vet`,
+   `go test ./... -race`, `make test-state-redesign` × 3,
+   `make verify-generated`,
+   `kiox -- orun validate --intent intent.yaml` all green. Coverage
+   floors held: catalogmodel ≥ 90 % deterministic, sourcectx 91.1 %,
+   Sanitize* 100 %, statestore 95.7 %, revision 90.3 %, executionstate
+   90.0 %.
+|- Spec proposals: none.
+|- Durable outcome: Phase 2 C1 ✅ COMPLETE on `main`. The
+   `internal/sourcectx` resolver is the deterministic input layer for
+   `internal/catalogresolve` (C2). `dirtyHash` and `catalogInputHash`
+   flow correctly; the C0 catalogmodel gate is now deterministic.
+
+## Task 0025
+
+|- Agent: Implementer
+|- Prompt: `ai/tasks/task-0025.md`
+|- Status: scoped and ready to begin (2026-05-31).
+|- Milestone: C2 first PR — `internal/catalogresolve` (discover + load
+   + inherit only).
+|- Objective: stand up `internal/catalogresolve` with stages 2 / 3 of
+   the resolution pipeline — workspace discovery of `component.yaml`,
+   schema-validated load via the embedded
+   `internal/catalogmodel/schema/component-yaml.schema.json`, and
+   authored-only inheritance from `intent.yaml` `catalog.*` defaults
+   (per `resolution-pipeline.md` §3 map-vs-list semantics). Output:
+   `DiscoverAndLoad(ctx, opts) (DiscoveryResult, error)` returning a
+   deterministic in-memory `[]AuthoredManifest` consumable by Task 0026.
+|- Scope boundary: only `internal/catalogresolve/` package source
+   (`discover.go`, `load.go`, `inherit.go`, types, `testdata/` fixtures,
+   tests) plus the Makefile coverage gate for the new package. Zero
+   edits to `internal/catalogmodel/`, `internal/sourcectx/`, or any
+   Phase 1 internal package. Leaf-clean: may import only
+   `internal/catalogmodel` + stdlib + already-pulled deps.
+|- Acceptance: `go build` + `go vet` + `go test ./... -race` green;
+   `make test-state-redesign` and `make verify-generated` green;
+   `internal/catalogresolve` ≥ 90 % coverage; two consecutive
+   `DiscoverAndLoad` calls byte-identical on the canonical fixture;
+   typed errors for mixed `.yaml`/`.yml` collisions and schema-invalid
+   manifests (with file + JSON pointer); inheritance fixture proves
+   authored-precedence + map-key merge + list-wholesale + empty-list-as-set;
+   Phase 1 + C0 + C1 floors held byte-for-byte; PR opened with real
+   number backfilled into the implementer report.
+|- Expected outcome: in-memory `[]AuthoredManifest` from
+   `DiscoverAndLoad`, ready for Task 0026 (C2 PR-2: infer + deps +
+   validate + `manifestHash`) to consume.
+|- Non-goals: no inference, no deps resolution, no validation matrix,
+   no `manifestHash`, no graph build, no `CatalogSnapshot`, no
+   `catalogHash`, no `internal/catalogstore` writes, no CLI changes.
+|- Implementation outcome (2026-05-31): branch
+   `impl/task-0025-c2-discover-load-inherit` shipped to PR #170 —
+   OPEN/MERGEABLE/CLEAN, all required CI green
+   (`state-redesign-tests/test`, `CI/Orun Plan`, `Harness dry-run guard`).
+   Diff +1 413 / −0 across 26 files: net new `internal/catalogresolve/`
+   (10 source/test + 13 testdata fixtures), one additive file
+   `internal/catalogmodel/schema_embed.go` (8 lines, `//go:embed`-only),
+   `Makefile` +7 lines (catalogresolve gate ≥ 90 %). Phase 1 + C0 + C1
+   floors held; new `internal/catalogresolve` measured 90.0 % exact
+   (zero headroom — verifier should reproduce 3× and add deterministic
+   backstop on any drift). Two implementer call-outs flagged for
+   verifier: (1) additive `schema_embed.go` in `catalogmodel/` with
+   proposed PR-Boundary wording tightening; (2) zero coverage headroom.
+   Implementer report: `ai/reports/task-0025-implementer.md`.
+
+## Task 0025 — Verifier
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0025-verifier.md`
+|- Status: ✅ verified PASS and merged via PR #170 (squash `723be32`)
+   on 2026-05-31T07:06:29Z.
+|- Target PR: #170 on branch `impl/task-0025-c2-discover-load-inherit`.
+|- Objective: verify PR #170 against the Verifier Standard in
+   `agents/orchestrator.md` and the Task 0025 acceptance criteria.
+   Adjudicate the implementer's two call-outs (additive `schema_embed.go`
+   in `catalogmodel/`; 90.0 % exact coverage on `catalogresolve`). On
+   PASS, squash-merge with `--admin --delete-branch`, fast-forward local
+   `main`, leave the working tree clean.
+|- Permitted edits: `ai/reports/task-0025-verifier.md` and a minimal
+   deterministic coverage backstop in `internal/catalogresolve/*_test.go`
+   if reproducible flake at the 90 % gate is observed. No backstop
+   needed — coverage was deterministic.
+|- Acceptance (all met): PR Boundary fidelity confirmed (only
+   `catalogresolve/`, `catalogmodel/schema_embed.go`, `Makefile`,
+   reports); 3× `make test-state-redesign` stable at **90.0 %** on
+   `catalogresolve`; Phase 1 / C0 / C1 coverage floors held
+   byte-for-byte; determinism stress (`go test -count=10
+   ./internal/catalogresolve/...`) green with 0 failures; PR #170 CI
+   rollup CLEAN on rebased head SHA `835262e` (post verifier-report
+   commit); verifier report filed at
+   `ai/reports/task-0025-verifier.md`; squash commit `723be32` +
+   merged-at `2026-05-31T07:06:29Z` recorded.
+|- Adjudication outcomes:
+   1. **Schema-embed call-out (ACCEPT).** Additive
+      `internal/catalogmodel/schema_embed.go` (18 lines,
+      `//go:embed`-only) is the narrowest possible reading of the
+      "no edits to `catalogmodel/`" constraint given that `//go:embed`
+      cannot escape its package and vendoring is forbidden by spec.
+      Convention adopted: *"one additive file per cross-package contract
+      surface in `internal/catalogmodel/`, no edits to existing source
+      files, embed-only or read-only typed view, no logic"*. Spec
+      proposal at `ai/proposals/task-0025-spec-update.md` tightens the
+      C2 PR-Boundary wording for Tasks 0026 onward.
+   2. **Coverage-headroom call-out (ACCEPT WITH RISK NOTE).**
+      `internal/catalogresolve` measured 90.0 % exact across 3
+      consecutive local `make test-state-redesign` runs and CI run
+      26705772895 — deterministic, no `pgregory.net/rapid` variance,
+      `go test -count=10 -race` zero failures. No backstop required;
+      Task 0026 PR-2 will naturally raise the floor as more resolver
+      machinery lands.
+|- Spec proposals: `ai/proposals/task-0025-spec-update.md` (PR-Boundary
+   wording tightening for `catalogmodel/` + `sourcectx/` to permit
+   additive sibling files for cross-package contract surfaces).
+|- Durable outcome: Phase 2 C2 PR-1 ✅ COMPLETE on `main`. The
+   `internal/catalogresolve` package now provides
+   `DiscoverAndLoad(ctx, Options) (DiscoveryResult, error)` —
+   workspace walk + schema-validated load + intent-defaults inheritance
+   producing a deterministic sorted `[]AuthoredManifest` with RFC 6901
+   provenance. Mini-T-RES-1 asserted in-package. Ready for Task 0026
+   (C2 PR-2: infer + deps + validate + `manifestHash`).
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign

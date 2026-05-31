@@ -3,134 +3,142 @@
 ## Active Spec
 `specs/orun-component-catalog/` (Phase 2, local-only) — content-addressed
 SourceSnapshot/CatalogSnapshot model wrapping the Phase 1 trigger /
-revision / execution lineage. See
-`specs/orun-component-catalog/README.md` for the doc index and read
-order. **Local-only** for the entire phase: no HTTP, no SaaS, no DB
-schema. `internal/catalogsync` ships only `Syncer` interface +
-`NoopSyncer` (C9).
+revision / execution lineage. **Local-only** for the entire phase: no
+HTTP, no SaaS, no DB schema. `internal/catalogsync` ships only `Syncer`
+interface + `NoopSyncer` (C9).
 
 ## Active Milestone
-**C1 — `internal/sourcectx` resolver.** Per
-`specs/orun-component-catalog/implementation-plan.md` §C1 and
-`identity-and-keys.md` §2 + §7 + §8 + `design.md` §6.
+**C2 — `internal/catalogresolve` (discovery + manifest resolver).** Per
+`specs/orun-component-catalog/implementation-plan.md` §C2 and
+`resolution-pipeline.md` stages 2 / 3 / 5 / 6 / 8 / 9 / 10.
 
-C0 shipped pure data + the `internal/sourcectx` *type skeleton*
-(`WorkspaceState`, `BuildSourceSnapshotKey`, `DirtyHash`,
-`CatalogInputHash`). C1 turns that skeleton into a real **resolver**:
-given a workspace path + injected `Git`/`Clock`/`Filesystem`, produce a
-populated `WorkspaceState` whose `SourceSnapshotKey` is byte-stable
-across orderings and whose hashes track only catalog-relevant inputs.
+Spec suggests 2 PRs:
+- **C2 PR-1 (Task 0025, ▶ active):** discover + load + inherit. No
+  inference, no deps resolution, no validation matrix, no `manifestHash`.
+  Output: in-memory `[]AuthoredManifest` from `DiscoverAndLoad`.
+- **C2 PR-2 (Task 0026, queued):** infer + deps + validate +
+  `manifestHash`. Output: full `Resolve(ctx, opts)` returning the
+  resolved (but pre-graph) manifests with byte-stable `manifestHash`.
 
-C1 "done when":
-- `ResolveSourceSnapshot(ctx, opts) (WorkspaceState, error)` lands
-  with adapters for Git (HEAD revision, treeHash, branch, ref, tag,
-  PR-number detection), `Clock`, and `Filesystem` (workspace walk +
-  catalog-relevant dirty-file enumeration per identity-and-keys.md §7).
-- `WorkspaceState.HeadRevision` / `TreeHash` / `Dirty` / `DirtyHash`
-  populated from the injected adapters; `CatalogInputHash` exposed
-  via `(WorkspaceState).CatalogInputHash(intent CatalogInputHashInputs)`
-  or a free function on the package.
-- `internal/sourcectx` ≥ 90 % coverage (existing floor).
-- T-IDK-3 (key stability across 1 000 random orderings of dirty
-  inputs) and **T-IDK-4 (adding a non-catalog-relevant file does NOT
-  change `dirtyHash`)** ship as `internal/sourcectx` property tests.
-- Clean / dirty / no-git / PR-injected / branch / tag fixtures all
-  produce the documented `SourceSnapshotKey` shapes from
-  `identity-and-keys.md` §2.
-- `--from-ci`-style provider injection produces the documented
-  error envelope on no-match (mirrors Phase 1 §11).
+C2 "done when" (across both PRs):
+- `internal/catalogresolve` ≥ 90 % coverage.
+- Component fixture in `testdata/repo/` produces a byte-identical
+  `[]ComponentManifest` across two consecutive `Resolve` calls (T-RES-1).
+- Inheritance provenance populated for every inherited / inferred field
+  (T-RES-2).
+- Broken dependency reports `ErrDependencyMissing` with both endpoints.
+- Cycle in `deploy-after` aborts; cycle in `calls` warns by default.
 
 ## Milestone Sequence (C0 → C9)
 | C  | Status | Goal |
 |----|--------|------|
-| C0 | ✅ done | Spec foundation + pure data models (catalogmodel, sourcectx skeleton) |
-| C1 | ▶ active | `internal/sourcectx` resolver (Git HEAD, treeHash, dirtyHash, catalogInputHash) |
-| C2 | next | `internal/catalogresolve` — discovery, manifest load, inheritance, inference, deps, validation, manifestHash |
-| C3 |       | `internal/catalogstore` — Writer/Resolver, atomic writes under `.orun/sources/` and `.orun/catalogs/` |
-| C4 |       | Wire `orun plan` / `orun run` onto SourceSnapshot/CatalogSnapshot |
-| C5 |       | TUI cockpit consumes `CatalogSnapshot` (unblocks `.kiro/specs/orun-tui-cockpit`) |
-| C6 |       | Compatibility shims — `stateCompatibilityWrites` flag, reader fallback |
-| C7 |       | `orun catalog *` CLI surface + global indexes |
-| C8 |       | `internal/catalogdiff` (catalog vs catalog comparator) |
-| C9 |       | `internal/catalogsync` seam (`Syncer` interface + `NoopSyncer` ONLY — no HTTP, no auth) |
+| C0 | ✅ done (PR #168 / `7f3f2bf`) | Spec foundation + pure data models |
+| C1 | ✅ done (PR #169 / `b50d799`) | `internal/sourcectx` resolver |
+| C2 | ▶ active | `internal/catalogresolve` — discovery + manifest resolver (Tasks 0025 + 0026) |
+| C3 | next  | `CatalogSnapshot` + graph builder + `catalogHash` |
+| C4 |       | `internal/catalogstore` Writer + Resolver atomic writes |
+| C5 |       | Catalog CLI surface |
+| C6 |       | `orun plan` integration |
+| C7 |       | `orun run` integration + history events |
+| C8 |       | `internal/catalogdiff` + validate + rebuild |
+| C9 |       | `internal/catalogsync` seam (`Syncer` + `NoopSyncer` ONLY — no HTTP, no auth) |
 
 Phase 1 invariants preserved: do not rename Phase 1 fields, do not
 lower coverage floors (`internal/statestore` 95.7 %, `internal/revision`
 90.3 %, `internal/executionstate` 90.0 %), do not remove preserved
 Phase 1 CLI workflows. Phase 2 floors held: `internal/catalogmodel`
-90.2 %, `internal/sourcectx` 91.3 %, Sanitize* 100 %.
+91.1 %, `internal/sourcectx` 91.1 %, Sanitize* 100 %.
 
-## Just Completed — Task 0023 (C0 code half)
-- **Status:** ✅ Verified PASS and merged via PR #168 (squash commit
-  `7f3f2bf`) on 2026-05-31. Verifier report:
-  `ai/reports/task-0023-verifier.md`. Implementer report:
-  `ai/reports/task-0023-implementer.md`.
-- **Outcome on `main`:** `internal/catalogmodel` (15 Go files +
-  schema generator + 9 golden fixtures + roundtrip / property /
-  sanitize / coverage tests) and `internal/sourcectx` skeleton
-  (model / keys / hash + tests) shipped. Canonical encoder is
-  byte-deterministic, JSON Schema for `component.yaml` lives at
-  `internal/catalogmodel/schema/component-yaml.schema.json` with a
-  `make verify-generated` drift gate. Golden roundtrip fixtures cover
-  every `data-model.md` schema; T-IDK-1 / T-IDK-3 / T-IDK-5 property
-  tests pass.
-- **Verifier-attached fix on PR #168:** implementer shipped at
-  81.7 % catalogmodel coverage (under the spec-mandated ≥ 90 %
-  floor) — the Makefile only gated `Sanitize*` at 100 %. Verifier
-  added `internal/catalogmodel/coverage_test.go` (8 tests covering
-  `CanonicalEncodeString` / `CanonicalEqual` / `CatalogInputHash` +
-  edge paths) and hardened the Makefile with package-level ≥ 90 %
-  gates on both `internal/catalogmodel` and `internal/sourcectx`.
-- **Local gates on main:** `go build`, `go vet`,
-  `go test ./... -race`, `make test-state-redesign`,
-  `make verify-generated` all green. Final coverage: catalogmodel
-  90.2 %, sourcectx 91.3 %, Sanitize* 100 %, statestore 95.7 %,
-  revision 90.3 %, executionstate 90.0 %.
+## Just Completed — Task 0024 (C1 resolver)
+- **Status:** ✅ Verified PASS and merged via PR #169 (squash commit
+  `b50d799`) on 2026-05-31. Reports:
+  - Implementer: `ai/reports/task-0024-implementer.md`
+  - Verifier: `ai/reports/task-0024-verifier.md`
+- **Outcome on `main`:** `internal/sourcectx` resolver shipped with
+  `ResolveSourceSnapshot(ctx, opts)`, Git/Clock/Filesystem adapters,
+  `WorkspaceState` populated with `headRevision`, `treeHash`,
+  `dirtyHash`, `catalogInputHash`. T-IDK-3 (key stability across
+  random orderings) and T-IDK-4 (non-catalog files don't change
+  `dirtyHash`) ship as property tests.
+- **Verifier-attached fix:** added
+  `internal/catalogmodel/coverage_test.go::TestCanonicalEncodeStringEscapeBranches`
+  to deterministically pin the C0 catalogmodel coverage floor — rapid
+  generators were probabilistically missing `\b` / `\f` escape branches
+  in `writeQuotedString`, dropping coverage from 90.2 % to 87.9 % on
+  some seeds. Post-fix: catalogmodel 91.1 % × 19 / 90.6 % × 1 across
+  20 runs.
+- **Local gates on main:** `go build`, `go vet`, `go test ./... -race`,
+  `make test-state-redesign`, `make verify-generated`,
+  `kiox -- orun validate --intent intent.yaml` all green.
 
-## Current Task (0024)
-- **Agent:** Implementer
-- **Prompt:** `ai/tasks/task-0024.md`
-- **Branch (planned):** `impl/task-0024-c1-sourcectx-resolver`
-- **Objective:** ship the C1 resolver — turn a workspace into a
-  populated `WorkspaceState` deterministically. Implement
-  `ResolveSourceSnapshot(ctx, opts)` with injected `Git` /
-  `Clock` / `Filesystem` adapters. Populate `headRevision`,
-  `treeHash`, `dirtyHash`, `catalogInputHash`, scope detection
-  (branch / PR / tag / local-dirty / local-nogit / ci-event), and
-  surface a default Git adapter (in-process go-git **or**
-  shell-out — implementer's choice; document the trade-off in the
-  PR body).
-- **Reads:** `specs/orun-component-catalog/{design.md §6,
-  identity-and-keys.md §2 + §7 + §8 + §11, implementation-plan.md
-  §C1, test-plan.md (T-IDK-3, T-IDK-4)}`.
-- **PR Boundary:** new code under `internal/sourcectx/`
-  (resolver + adapters + tests + fixtures), Go module deps for
-  the chosen Git adapter (one of `go-git` or `os/exec` shell-out
-  to `git`). **No CLI changes, no storage writes, no resolver
-  consumption from other internal packages yet.** Zero edits to
-  `internal/catalogmodel/` or any Phase 1 package.
-- **Acceptance:** `go build ./...` + `go vet ./...` +
-  `go test ./... -race` green; `make test-state-redesign` and
-  `make verify-generated` green; `internal/sourcectx` ≥ 90 %
-  coverage (existing gate); fixture-based clean / dirty / no-git
-  / PR / branch / tag tests producing the spec-documented
-  `SourceSnapshotKey`; T-IDK-3 + T-IDK-4 property tests; Phase 1
-  + catalogmodel coverage floors held; leaf-clean (no
-  `internal/sourcectx` import outside its own tree).
+## Just Completed — Task 0025 (C2 PR-1 discover/load/inherit)
+- **Status:** ✅ Verified PASS and merged via PR #170 (squash commit
+  `723be32`) on 2026-05-31T07:06:29Z. Reports:
+  - Implementer: `ai/reports/task-0025-implementer.md`
+  - Verifier: `ai/reports/task-0025-verifier.md`
+  - Spec proposal: `ai/proposals/task-0025-spec-update.md`
+- **Outcome on `main`:** `internal/catalogresolve` online with
+  `DiscoverAndLoad(ctx, Options) (DiscoveryResult, error)`. Walks the
+  workspace (default excludes: `.git .orun build dist node_modules
+  vendor`, intent excludes appended), loads + Draft-7 schema-validates
+  authored `component.yaml` / `component.yml` manifests (mixed-extension
+  in same dir is a typed error), applies intent `catalog.defaults`
+  inheritance (scalar-zero / per-key-map / wholesale-list rules), and
+  emits a deterministic sorted `[]AuthoredManifest` with RFC 6901
+  provenance pointers. Mini-T-RES-1 asserted in `resolve_test.go`.
+- **Coverage floors on main:** `internal/catalogresolve` **90.0 %** (exact
+  gate, deterministic across 3 local + CI runs); `internal/catalogmodel`
+  91.1 %, `internal/sourcectx` 91.1 %, Sanitize* 100 %; Phase 1 floors
+  byte-for-byte (statestore 95.7 %, revision 90.3 %, executionstate 90.0 %).
+- **Verifier-accepted call-outs:**
+  1. Additive `internal/catalogmodel/schema_embed.go` (18 lines,
+     `//go:embed`-only) ACCEPTED — `//go:embed` cannot escape its
+     package, vendoring is forbidden by spec. **Convention adopted
+     (load-bearing for Phase 2):** *"One additive file per cross-package
+     contract surface in `internal/catalogmodel/`. No edits to existing
+     source files. Each additive file is `//go:embed`-only or a small
+     read-only typed view — no logic."*
+  2. `catalogresolve` 90.0 % no-headroom ACCEPTED WITH RISK NOTE —
+     deterministic (no rapid-driven variance), CI matches local
+     byte-for-byte; Task 0026 PR-2 will naturally raise the floor.
+- **Spec proposal:** `ai/proposals/task-0025-spec-update.md` tightens
+  the C2 PR-Boundary wording to *"No edits to **existing source files
+  in** `internal/catalogmodel/` or `internal/sourcectx/`. Additive
+  sibling files (embed-only exports, small read-only typed views)
+  needed by dependent packages are permitted; one additive file per
+  cross-package contract surface, no logic."* Fold into Task 0026
+  prompt at scope time.
+- **Local gates on main:** `go build`, `go vet`, `go test ./... -race`,
+  `make test-state-redesign` ×3, `make verify-generated`, `kiox -- orun
+  validate --intent intent.yaml`, `go test -count=10 -race
+  ./internal/catalogresolve/...` all green.
+
+## Current Task (0026 — C2 PR-2, queued)
+- **Agent:** Orchestrator (next cycle scopes the implementer prompt).
+- **Goal:** infer + deps + validate + `manifestHash` on top of merged
+  catalogresolve. Adds resolution-pipeline stages 6 / 8 / 9 / 10 plus
+  `Resolve(ctx, opts)` top-level entry. T-RES-1 (resolver determinism),
+  T-RES-2 (provenance completeness), and `ErrDependencyMissing` land
+  here. After Task 0026 closes, C2 is done and C3 (CatalogSnapshot +
+  graph builder + `catalogHash`) opens.
+- **PR-Boundary wording for the prompt:** use the tightened version
+  from `ai/proposals/task-0025-spec-update.md` so additive sibling
+  files in `catalogmodel/` (e.g. another small typed view if needed)
+  remain explicitly permitted without re-litigating.
 
 ## Repo Checkpoint
 
 | Attribute | Value |
 |---|---|
 | Branch (local checkout) | `main` (clean) |
-| `main` tip | `7f3f2bf` — Task 0023 / C0 code half (PR #168) on 2026-05-31 |
+| `main` tip | `723be32` — Task 0025 / C2 PR-1 catalogresolve discover+load+inherit (PR #170) on 2026-05-31 |
 | Open PRs | none |
-| Repo health | 🟢 Green — C0 done; ready for C1 |
-| Last verified | 2026-05-31 (Task 0023 verifier PASS, merged) |
+| Repo health | 🟢 Green — C2 PR-1 done; ready for Task 0026 (C2 PR-2) |
+| Last verified | 2026-05-31 (Task 0025 verifier PASS, merged) |
 | Active phase | Phase 2 (orun-component-catalog) |
-| Active milestone | C1 (`internal/sourcectx` resolver = Task 0024) |
-| Tasks completed | 0001–0005, 0007–0016, 0018–0023 (21 total) |
-| Current task | **0024 (C1 resolver)** — implementer prompt emitted at `ai/tasks/task-0024.md` |
+| Active milestone | C2 (`internal/catalogresolve` — Tasks 0025 ✅ + 0026 queued) |
+| Tasks completed | 0001–0005, 0007–0016, 0018–0025 (23 total) |
+| Current task | **0026 (C2 PR-2: infer + deps + validate + manifestHash)** — orchestrator to scope |
 
 ---
 

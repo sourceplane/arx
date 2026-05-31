@@ -161,8 +161,8 @@ Fold the spec-proposal wording into Task 0026's prompt at scope time.
 
 ## Squash Commit SHA
 
-To be filled in after `gh pr merge --squash --admin --delete-branch`.
+`723be32f3ef68a8df039f804966273167852e822`
 
 ## Merged At
 
-To be filled in after merge.
+`2026-05-31T07:06:29Z`

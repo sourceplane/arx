@@ -1,19 +1,35 @@
 # Waiting For Input
 
-**Status:** none — `false` in `ai/state.json`.
+waiting: false
 
-Phase 1 (`specs/orun-state-redesign/`, M0–M6) closed via PR #165 →
-release-notes PR #166 (`b4178dd`). Phase 2 begins now.
+No outstanding user questions. Orchestrator does not need user input to
+proceed.
 
-Active spec: `specs/orun-component-catalog/` (Phase 2, local-only
-SourceSnapshot/CatalogSnapshot model). Active milestone: **C0**.
+## Active task
 
-Next orchestrator cycle: emit **Task 0022 = Phase 2 rollover PR**
-(docs-and-bookkeeping only — land the 12-doc spec pack, the rewritten
-`agents/orchestrator.md`, the rotated `ai/state.json`, refresh the
-context files, and dispose of the root-level `orun-catalog-full-design.md`
-monolith). After 0022 merges, Task 0023 ships C0's code half
-(`internal/catalogmodel` + `internal/sourcectx` skeleton + JSON-Schema
-generator).
+**Task 0026 (Implementer scoping)** — orchestrator's next cycle scopes
+the C2 PR-2 implementer prompt: `internal/catalogresolve` infer + deps
++ validate + `manifestHash`. Use the tightened PR-Boundary wording
+from `ai/proposals/task-0025-spec-update.md` (additive sibling files
+in `catalogmodel/` permitted; one file per cross-package contract
+surface, no logic).
 
-No active blockers or pending user decisions.
+## Just closed
+
+- Task 0025 (C2 PR-1 verifier) — PR #170 verified PASS and merged via
+  squash commit `723be32` on 2026-05-31T07:06:29Z. Both implementer
+  call-outs ACCEPTED. `internal/catalogresolve` shipped to `main` with
+  `DiscoverAndLoad(ctx, Options)` (90.0% deterministic coverage). Spec
+  proposal filed at `ai/proposals/task-0025-spec-update.md`. Reports:
+  `ai/reports/task-0025-implementer.md`,
+  `ai/reports/task-0025-verifier.md`.
+
+## Next planned cycle
+
+Task 0026 = **C2 second PR** — `internal/catalogresolve` infer + deps
++ validate + `manifestHash`. Spec source:
+`specs/orun-component-catalog/implementation-plan.md` §C2 +
+`resolution-pipeline.md` stages 6 / 8 / 9 / 10 +
+`identity-and-keys.md` §10. T-RES-1 (resolver determinism) and T-RES-2
+(provenance completeness) land here. After C2 closes, Task 0027 = C3
+(`CatalogSnapshot` + graph builder + `catalogHash`).
