@@ -1381,6 +1381,34 @@ schema). Milestones C0–C9 per `implementation-plan.md`.
 |- Non-goals: `WriteRefs`, `WriteGlobalIndexes`, `AppendComponentEvent`, `Resolver.*`, `RebuildIndexes`, `-x<n>` collision-suffix logic, `stateCompatibilityWrites` mirror writes, CLI changes, plan/run integration.
 |- Expected outcome: single PR landing the path layer plus the body-write half of `Writer`, with the public surface of `Writer`/`Resolver`/`Store` finalised so PR-2 (refs + indexes) and PR-3 (resolver + fallback chain) only fill bodies.
 
+## Task 0030 — UPDATE (cycle 5)
+
+|- Status: 🟢 implementer-pass on 2026-05-31. PR #173 opened on `task-0030-catalogstore-c4-pr1` (head `7fec059`); CI 4/4 SUCCESS, MERGEABLE/CLEAN. Implementer self-report shipped on the branch at `reports/task-0030-catalogstore-c4-pr1.md` (note: canonical path was `ai/reports/task-0030-implementer.md` per task spec — verifier to either move or accept).
+|- Surface delivered: `internal/catalogstore/{paths.go, paths_test.go, writer.go, writer_test.go, errors.go, store.go, store_test.go, doc.go}`. Path layer covers every helper from `catalog-store.md` §2 (sources, catalogs, components, refs, local indexes, global indexes, history events) plus `Validate*` siblings (return `(string, error)`, no panics). Mismatch sentinels `Err{Source,Catalog,Manifest}Mismatch` double-wrap `statestore.ErrExists` so `errors.Is` succeeds against both. `ErrInputsInconsistent` pre-flight rejects mismatched (src, cat, manifests) tuples BEFORE any write. Writer ships steps A and B.1→B.2→B.3→B.4 in fixed order; graph order driven by `CatalogGraphKinds()` (not input map iteration); B.4 local indexes via plain `Write` (overwrite-OK). `Writer`/`Resolver`/`Store` interfaces frozen with compile-time assertions on `*store`; deferred methods return `ErrNotImplemented` (test-pinned). Encoder choice: `PrettyEncode` for body writes, `CanonicalEncode` reserved for hashing.
+|- Coverage (claimed): `internal/catalogstore` 90.7 %; Phase 1 + Phase 2 floors held. Verifier to re-measure.
+|- Verifier task: `ai/tasks/task-0031-verifier.md`.
+
+## Task 0031 — Verifier on PR #173 (C4 PR-1)
+
+|- Agent: Verifier
+|- Prompt: `ai/tasks/task-0031-verifier.md`
+|- Status: ⏳ scoped 2026-05-31 (cycle 5). Awaiting verifier pass.
+|- Target PR: #173 on branch `task-0030-catalogstore-c4-pr1`, head `7fec059`. CI green at scope time; MERGEABLE/CLEAN.
+|- Verification scope:
+   1. PR-boundary audit (only the eight `internal/catalogstore/` files; no edits outside that dir; no `refs.go`/`indexes.go`/`resolver.go`).
+   2. Write-order audit (B.1→B.2→B.3→B.4 in code AND spy test; fixed graph order `dependencies, systems, apis, resources, owners`).
+   3. Pre-flight `ErrInputsInconsistent` for cat↔src, manifest↔src, manifest↔cat mismatch shapes BEFORE any write (read the test, not the report).
+   4. Idempotence + double-wrap `errors.Is` chains to both typed sentinel and `statestore.ErrExists`.
+   5. Stub policy pinned by test for `WriteRefs`/`WriteGlobalIndexes`/`AppendComponentEvent` + every `Resolver` method.
+   6. Step B.4 uses plain `Write`, NOT CAS (rebuildable per spec).
+   7. No raw FS imports under `internal/catalogstore/`.
+   8. Coverage: `internal/catalogstore` ≥ 90 %; Phase 1 floors held byte-for-byte; Phase 2 floors held.
+   9. Implementer report location decision (move to canonical path or document deviation — verifier's call).
+   10. CI green at merge time; `mergeStateStatus: CLEAN`.
+|- Verifier-only fixes allowed: report relocation, tiny doc polish required to PASS. Anything more becomes Task 0031.x.
+|- On PASS: merge via Verifier Merge Protocol, sync `main`, scope Task 0032 (C4 PR-2 implementer — `refs.go` + `indexes.go` + `AppendComponentEvent` with `seq.lock` retry-up-to-16). On FAIL: leave PR open with blockers; remediation stays in same PR.
+|- Expected outcome: PR #173 squash-merged with `internal/catalogstore` paths + body writer landed on `main`, public `Writer`/`Resolver`/`Store` surface frozen for PR-2/PR-3, all coverage floors held.
+
 ## Historical Notes
 
 - 2026-05-30: roadmap pivoted from TUI cockpit (Phase 3) to orun-state-redesign

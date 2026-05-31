@@ -1,80 +1,90 @@
 # Orchestrator Brief
 
 ## Cache Fingerprint
-- generated_at: 2026-05-31T09:56:05Z
-- cycle_seq: 4
-- head_sha: 75082ca7042bc1d2e9781449add5163ef80f90b4
-- state_json_sha256: bd0b2f8b136bda1ac9efe9a303c302188be61e312e3cd14050bc6a4e5dffc649
+- generated_at: 2026-05-31T10:30:00Z
+- cycle_seq: 5
+- head_sha: 7669cc0faa07a7a7da6d683384e3fa53184e7264
+- state_json_sha256: 5293eb90dfad10a7f5cef8c4b27ebd282085fa60c2e7c0b3df574ab97112be6a
 - merged_pr_count: 166
-- open_pr_count: 0
-- last_task_agent: ai/tasks/task-0030.md
-- last_worker_result: verifier-pass
-- cycle_4_action: scope Task 0030 (C4 PR-1 implementer — `internal/catalogstore`
-  paths + body writer). PR #172 squash-merged at `75082ca`; Task 0029 verifier
-  PASSed; bookkeeping cycle closed. State / current / ledger updated; this
-  brief overwritten.
+- open_pr_count: 1
+- last_task_agent: ai/tasks/task-0031-verifier.md
+- last_worker_result: implementer-pass
+- cycle_5_action: emit Task 0031 verifier on PR #173 (Task 0030 implementer-pass).
+  PR is MERGEABLE/CLEAN, CI 4/4 SUCCESS. State / current / ledger updated;
+  this brief overwritten. Bookkeeping commit pending on `main` after this
+  brief lands.
 
 ## Cache Validity Rule
 The next cycle MAY skip the cold read (loop steps 1–7) iff ALL of:
-- `git rev-parse HEAD` == `75082ca7042bc1d2e9781449add5163ef80f90b4`
+- `git rev-parse HEAD` (on main) ==
+  `7669cc0faa07a7a7da6d683384e3fa53184e7264` (pre-bookkeeping-commit
+  expected; once the bookkeeping commit lands the SHA will advance —
+  fingerprint mismatch is INTENTIONAL there and forces a one-shot
+  cold-read at the start of cycle 6 to pick up the merge of PR #173
+  if it has happened by then).
 - `shasum -a 256 ai/state.json` first field ==
-  `bd0b2f8b136bda1ac9efe9a303c302188be61e312e3cd14050bc6a4e5dffc649`
-- `gh pr list --state merged --limit 1000 | wc -l` == 166
-- `gh pr list --state open | wc -l` == 0 (Task 0030 not yet pushed) OR == 1
-  (Task 0030 PR open — predicted implementer-pass path; treat that as a
-  fingerprint-mismatch on `open_pr_count` and cold-read for verifier emission)
-- next cycle_seq ≤ 7 (this brief generated at seq 4; valid for 5–6)
+  `5293eb90dfad10a7f5cef8c4b27ebd282085fa60c2e7c0b3df574ab97112be6a`
+- `gh pr list --state merged --limit 1000 | wc -l` == 166 (PR #173
+  not yet merged) OR == 167 (verifier-pass + merge happened — that
+  is the predicted fingerprint mismatch and forces cold read).
+- `gh pr list --state open | wc -l` == 1 (PR #173 still open) OR
+  == 0 (PR #173 merged — predicted verifier-pass path; mismatch
+  forces cold read for next-task emission).
+- next cycle_seq ≤ 8 (this brief generated at seq 5; valid for 6–7).
 Otherwise: discard this brief and do a full cold read.
 
 ## Mental Model (the synthesis)
-Phase 2 has crossed C3 and is now standing at the gates of C4 — the first
-milestone that puts bytes on disk. PR #172 squash-merged cleanly at
-`75082ca`; `BuildCatalog(ctx, opts, ResolverInputs)` is now the
-deterministic data-only upstream that consumers will read from.
-`internal/catalogstore` does not exist on `main` yet — this is greenfield.
-The C4 spec (`catalog-store.md`) is dense (248 lines, 9 sections) and
-naturally fans into 2–3 PRs per the implementation plan. I scoped PR-1 as
-the path layer plus the body-write half of `Writer` (steps A and B of §3
-write-order). The non-obvious decision was carving `WriteRefs` /
-`WriteGlobalIndexes` / `AppendComponentEvent` (steps C and D) out of
-PR-1 entirely and forcing them into a typed `ErrNotImplemented` stub —
-this lets PR-1 finalise the public surface (`Writer` / `Resolver` /
-`Store` interfaces) so PR-2 and PR-3 can fill bodies without widening
-signatures. The other key call: pre-flight `ErrInputsInconsistent`
-guard rejects mismatched `sourceSnapshotKey` / `catalogSnapshotKey`
-linkage between `src` / `cat` / `manifests` BEFORE issuing any write.
-That converts a class of programmer error into a fast deterministic
-failure instead of a partially-written catalog tree. I deliberately
-deferred `-x<n>` collision-suffix logic on `catalogSnapshotKey` to PR-3
-(resolver territory): PR-1 asserts inputs are already final and refuses
-inconsistent ones; collision probing belongs upstream of the writer.
-Risk to watch on the verifier pass: B.4 (local indexes via plain
-`Write`) is intentionally non-CAS per spec — verifiers sometimes
-"harden" rebuildable artifacts with CAS reflexively; the spec says no.
+Cycle 5 is a clean implementer-pass closure. PR #173 came in exactly on
+the predicted next_cycle_hypothesis path — `internal/catalogstore`
+greenfielded with paths + body writer + frozen public surface, CI 4/4
+green, MERGEABLE/CLEAN, no spec proposals owed. The implementer report
+shipped at a non-canonical path (`reports/task-0030-catalogstore-c4-pr1.md`
+on the PR branch instead of `ai/reports/task-0030-implementer.md`); I
+deliberately did NOT escalate that — it's a verifier judgement call, and
+the report's content is dense and accurate. The non-obvious things in
+the delivered code are: (1) mismatch sentinels DOUBLE-WRAP
+`statestore.ErrExists`, so callers that key off the statestore sentinel
+keep working while gaining the typed-discriminator path; (2) graph write
+order is locked via `CatalogGraphKinds()` in code, not derived from the
+input map's iteration order — verifier should confirm this with a
+spy-based call-order test that feeds graphs in random order; (3) body
+writes use `PrettyEncode`, not `CanonicalEncode` — the implementer's
+stated rationale is that `CanonicalEncode` is reserved for hashing
+upstream and PR-1 has no hashing responsibility. That's the right call,
+but verifier should confirm consistency. The leverage point for cycle 6
+is binary: verifier-pass advances to C4 PR-2 (`refs.go` + `indexes.go` +
+`AppendComponentEvent`), verifier-fail keeps the loop on the same PR.
+Either way the next emission is fully predictable.
 
 ## Active Spec Pointer
 - spec: specs/orun-component-catalog
-- milestone: C4 (PR-1 in flight)
+- milestone: C4 (PR-1 awaiting verification, PR-2/PR-3 still queued)
 - milestone_done_when_remaining:
-  - All of `catalog-store.md` §3 steps A–D and §4 reader fallback +
-    `RebuildIndexes` (T-STORE-3) shipped across PR-1 / PR-2 / PR-3.
-  - `internal/catalogstore` package coverage ≥ 90 %.
+  - PR-1 verified-and-merged with `internal/catalogstore` ≥ 90 % cov
+    (claimed 90.7 %; verifier to re-measure).
+  - All of `catalog-store.md` §3 steps C–D shipped (PR-2): refs
+    write-with-CAS, global indexes write-with-CAS,
+    `AppendComponentEvent` seq.lock retry-up-to-16.
+  - §4 reader fallback chain (`current → latest → main`) +
+    `RebuildIndexes` byte-identical idempotence (T-STORE-3) shipped
+    (PR-3 or follow-up under C4 scope).
   - All writes go through `internal/statestore`; an `import-restriction`
     lint enforces it in CI (PR-2 or PR-3 will add this).
   - Refs `current` / `main` / `branches/<x>` / `prs/<n>` round-trip
     (PR-2).
   - Reader fallback exercised by a test that scrubs the global index
     and asserts walk-based recovery (PR-3).
-  - `RebuildIndexes` byte-identical idempotence (T-STORE-3) (PR-3 or
-    follow-up under C4 scope).
 - next_milestone_after: C5 — Catalog CLI (`orun catalog refresh / list /
   describe / refs / tree / history / validate`, `diff` stubbed for C8).
   Cannot start until C4 closes because every CLI command consumes the
   Resolver shipped in C4 PR-3.
 
 ## Open PRs (one line each)
-_none_ — PR #172 merged at `75082ca`. Task 0030 implementer is expected
-to open the next PR on branch `task-0030-catalogstore-c4-pr1`.
+- #173 `feat(catalogstore): C4 PR-1 — paths, errors, Writer (sources +
+  catalog snapshots)` — adampullely — green (CI 4/4 SUCCESS,
+  MERGEABLE/CLEAN) — Task 0030 implementer-pass; awaiting Task 0031
+  verifier; orchestrator-relevance: this is the PR that unlocks PR-2
+  scope on PASS.
 
 ## Deferred Backlog (parking lot summary)
 _none_ — no `/ai/deferred.md` file exists. Phase 1 carry-forward
@@ -93,92 +103,88 @@ candidates, not currently scheduled.
   0026 prompt; convention adopted as load-bearing Phase 2 rule).
   Stance: closed-and-folded.
 
-No new proposals owed by the orchestrator this cycle. Task 0029 verifier
-recorded "no proposals — C3 implementation matches spec; minor wording
-polish on data-model §4 / resolution-pipeline §7 node-ordering noted as
-non-blocking editorial". Brief confirms: no spec-update task warranted.
+No new proposals owed by the orchestrator this cycle. Task 0030
+implementer report explicitly recorded "_none_" for spec proposals;
+the spec was followed exactly. Brief confirms: no spec-update task
+warranted.
 
 ## Last Decision Rationale
-Why Task 0030 = C4 PR-1 (paths + body writer) was the highest-leverage
-emission this cycle:
-- C3 closed cleanly (PR #172 merged, all CI green, verifier PASS, no
-  proposals owed). The orchestrator loop step 14 ("Wait for worker
-  result") is satisfied; the natural emission is the C4 implementer.
-- C4 spec has a built-in 2–3 PR seam per `implementation-plan.md` —
-  emitting a "land all of C4 in one PR" task would violate the
-  PR-Sized Task Standard (paths + writer + resolver + refs + indexes
-  is at least 4 reviewable surfaces). Splitting at the body-write
-  boundary is the cleanest seam: PR-1 is purely additive, has no
-  read-path concerns, and ships the public surface that PR-2 / PR-3
-  can fill without widening.
-- Forcing `Writer` / `Resolver` / `Store` interface decls into PR-1
-  (with `ErrNotImplemented` stubs for unfilled methods) is the
-  standard "freeze the contract first" move — it eliminates the risk
-  of PR-2 silently widening a method signature mid-flight and
-  invalidating PR-1's reviewer mental model.
-- Pre-flight `ErrInputsInconsistent` instead of trusting `CreateIfAbsent`
-  alone: deterministic failure on mismatched keys catches programmer
-  errors before any partial-write state hits disk. Cheap to write,
-  high leverage.
-- Deferring `-x<n>` collision-suffix logic to PR-3 (resolver territory)
-  is correct: that probing logic needs to read existing
-  `sources/<srcKey>/catalogs/*` to test prefix collisions, which is a
-  read-side concern. PR-1 should not own a read-side responsibility.
-- The kanban-style alternative ("emit Task 0030 = the entire C4
-  milestone") was rejected because the spec itself explicitly suggests
-  2–3 PRs and the resulting prompt would either be too vague to
-  enforce or so prescriptive it would dictate the implementer's
-  internal sequencing.
+Why Task 0031 = verifier on PR #173 (rather than scope a parallel PR-2
+implementer slot) was the highest-leverage emission this cycle:
+- The PR-Sized Task Standard explicitly forbids overlapping a verifier
+  pass and the next implementer pass when both touch the same package.
+  PR-2 (refs + indexes) shares `internal/catalogstore/store.go` with
+  PR-1 (interface decls live there), so spawning PR-2 before PR-1
+  merges would create a near-certain rebase conflict on the deferred
+  method bodies and force re-review on the PR-1 surface.
+- The C4 spec's 2–3 PR seam is sequentially-coupled by design:
+  PR-1 freezes the public surface; PR-2 fills bodies; PR-3 adds
+  reader. Parallelising PR-1 verifier and PR-2 implementer would
+  also defeat the "freeze contract first" leverage that motivated
+  the seam.
+- The orchestrator already wrote the next_cycle_hypothesis on this
+  exact path in cycle 4's brief; honouring the prediction without
+  re-litigation is the warm-boot's whole purpose.
+- A user-redirect alternative ("skip verification, ship PR-2 now")
+  would violate the Verifier Standard and the implementer's
+  PR-Creation-Requirement contract — not on the table without
+  explicit instruction.
+- The verifier prompt asks for inspection (read the writer code +
+  the spy test, not just the report) because the implementer's
+  self-report is unusually detailed AND unusually accurate; the
+  cheapest way to convert that into PASS confidence is read-and-confirm,
+  not re-implement.
 
 ## Next Cycle Hypothesis
-- **if implementer-pass on Task 0030:** emit Task 0031 = C4 PR-2 verifier
-  on the new PR (review paths.go boundedness, body-write call order,
-  pre-flight inconsistency guard, stub semantics, coverage floors held).
-  After verifier-pass + merge, emit Task 0032 = C4 PR-2 implementer
-  (`refs.go` + `indexes.go` covering write-order steps C and D plus
-  `AppendComponentEvent`'s seq.lock retry-up-to-16 contract).
-- **if implementer-blocked:** likely blockers — (a) `internal/catalogmodel`
-  doesn't expose a public canonical-encoder entry point usable from a
-  fresh sibling package (would need a tiny additive export under the
-  C2 PR-1 convention; no spec change needed); (b) `statestore.StateStore`
-  lacks a clean test fake exposed for reuse, forcing the implementer to
-  build one inline (acceptable per task constraints); (c) the implementer
-  discovers that `data-model.md` doesn't pin the local-index file shape
-  (`indexes/components/<name>.json` body schema) — that would warrant a
-  proposal at `ai/proposals/task-0030-spec-update.md`. Pivot accordingly.
-- **if verifier-pass on the eventual PR:** as above — proceed to PR-2.
-- **if verifier-fail with bounded fix:** likely surfaces — graph order
-  not actually fixed (map iteration leaking through), a missing
-  `Validate*` for one of the path helpers, coverage on
-  `internal/catalogstore` falling under 90 % because a stub branch
-  isn't reachable. Remediation stays inside Task 0030's PR.
-- **if verifier-fail with scope expansion:** unlikely. If it happens,
-  most plausible cause is the pre-flight `ErrInputsInconsistent` guard
-  needing to be a separate validator method (so C5 CLI / C6 plan can
-  call it without committing). Emit Task 0030.1 narrowly extracting
-  the validator if that's the call.
-- **if proposal arrives at `ai/proposals/task-0030-*.md`:** orchestrator
-  must adjudicate before merging. Most likely topic: stub policy
-  (typed `ErrNotImplemented` vs. panic) or the local-index body schema.
-  Decide accept-leaning unless it touches Phase 1 invariants or widens
-  the public surface declared in `catalog-store.md` §1.
+- **if verifier-pass on Task 0031:** PR #173 merges, `main` advances,
+  emit **Task 0032** = C4 PR-2 implementer (`refs.go` + `indexes.go`
+  covering write-order steps C and D, plus `AppendComponentEvent`
+  with the seq.lock retry-up-to-16 contract from `catalog-store.md`
+  §3.D). Read first: `catalog-store.md` §3 steps C+D, §4 (refs only —
+  ResolveCatalog stays in PR-3), §5 atomicity, §6 error taxonomy
+  (add `ErrRefStale` here). Forbidden in PR-2: `resolver.go`,
+  `RebuildIndexes`, anything outside `internal/catalogstore/`.
+- **if verifier-fail with bounded fix:** likely surfaces — (a)
+  graph-order assertion test missing or weak (only one fixed-order
+  case, no random-order spy); (b) `errors.Is` chain to
+  `statestore.ErrExists` not actually reachable through the
+  double-wrap (would need a test that explicitly checks both
+  targets); (c) coverage on `internal/catalogstore` falling under
+  90 % under `-race -count=1` (the implementer's measurement was
+  90.7 % — close enough to the floor that one missing branch could
+  drop it). Remediation stays inside Task 0030's PR; emit no new
+  task slot. Verifier commits the patch on the PR branch and
+  re-merges.
+- **if verifier-fail with scope expansion:** unlikely. If it
+  happens, most plausible cause is that the pre-flight
+  `ErrInputsInconsistent` validator should be a separately
+  exposed validator method (so C5 CLI / C6 plan can call it
+  without committing). Emit Task 0030.1 narrowly extracting the
+  validator if that's the call.
+- **if a new spec proposal arrives at `ai/proposals/task-0031-*.md`:**
+  orchestrator must adjudicate before merging. Most likely topic:
+  the local-index file body schema (not pinned in `data-model.md`)
+  or the stub policy (typed `ErrNotImplemented` vs. panic).
+  Decide accept-leaning unless it widens the public surface
+  declared in `catalog-store.md` §1.
+- **if user-redirect arrives:** force cold read; re-scope per
+  `references/user-directed-roadmap-override.md`.
 
 ## Stale Signals (what would invalidate this brief early)
-- A new spec proposal arrives at `ai/proposals/task-0030-*.md` — force
-  cold read to adjudicate before continuing.
-- A user redirect away from C4 PR-1 (e.g. "land all of C4 in one PR"
-  or "skip to C5 CLI") — force cold read and re-scope per
-  `references/user-directed-roadmap-override.md` patterns.
-- CI starts failing on `main` (a `75082ca` post-merge regression) —
-  force cold read; stabilize before continuing C4.
-- `internal/catalogmodel.SourceSnapshot` / `CatalogSnapshot` /
-  `ComponentManifest` types change between scope and verify (data-model
-  spec drift mid-flight) — force cold read; the writer is consuming
-  those types by reference.
+- A new spec proposal arrives at `ai/proposals/task-0031-*.md` —
+  force cold read to adjudicate before continuing.
+- A user redirect away from C4 PR-2 (e.g. "skip the verifier,
+  ship PR-2 now" or "land all of remaining C4 in one PR") — force
+  cold read and re-scope per `references/user-directed-roadmap-override.md`.
+- CI starts failing on `main` (a `7669cc0` post-merge regression) —
+  force cold read; stabilise before continuing C4.
+- PR #173 head SHA changes (verifier-attached fix lands on the
+  branch) — force a re-read of the diff before merge.
 - A Phase 1 floor regression (statestore < 95.7, revision < 90.3,
   executionstate < 90.0) — force cold read; treat as a Priority-1
   invariant break and scope a stabilisation task before continuing.
-- The implementer pushes the PR but `gh pr view` shows it cannot run
-  required CI (a workflow file edit needed) — force cold read and
-  decide between attaching the workflow fix to the same PR or
-  scoping a small unblock task.
+- The verifier discovers `internal/catalogmodel.PrettyEncode` is
+  not a stable public symbol or doesn't exist — that's a wiring
+  problem the implementer skipped and would force a small fix on
+  the PR branch (or in a tiny additive sibling per the C2 PR-1
+  convention).

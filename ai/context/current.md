@@ -67,39 +67,75 @@ C2 (`internal/catalogresolve`) closed on 2026-05-31 via Tasks 0025 (PR #170,
   booleans). The C4 writer is the next guardrail (`authoritative=true`
   must imply `workingTree=clean` per data-model §2).
 
-## Current Task — Task 0030 (C4 PR-1 implementer — `internal/catalogstore` paths + body writer)
-- **Status:** Scoped 2026-05-31. Prompt at `ai/tasks/task-0030.md`.
-- **Milestone:** C4 PR-1 of an expected 2–3 PR split.
-  - PR-1 (this task): `paths.go` + `writer.go` covering write-order steps
-    A and B (Source body, manifests, graphs, catalog doc, local indexes).
-    Public `Writer` / `Resolver` / `Store` interfaces and `New(...)`
-    constructor are declared in this PR; not-yet-implemented methods
-    return `ErrNotImplemented` so PR-2 / PR-3 fill bodies without
-    widening the surface.
-  - PR-2 (later): `refs.go` + `indexes.go` covering steps C and D
-    (`WriteGlobalIndexes`, `WriteRefs`, `AppendComponentEvent`).
-  - PR-3 (later): `resolver.go` covering the read-side fallback chain.
-- **Adds:** `internal/catalogstore/{paths.go, writer.go, errors.go,
-  store.go}` plus tests. Path helpers from `catalog-store.md` §2;
-  body writes wired through `internal/statestore.CreateIfAbsent`
-  (idempotent on byte-identical bodies) plus pre-flight cross-reference
-  guard (`ErrInputsInconsistent`) when `src` / `cat` / `manifests`
-  disagree on `sourceSnapshotKey` or `catalogSnapshotKey`.
-- **Done when (PR-1):** `internal/catalogstore` ≥ 90 % coverage; B.1 →
-  B.2 → B.3 → B.4 ordering observable via spy; graph order fixed at
-  `dependencies, systems, apis, resources, owners`; canonical encoder
-  used for every body; Phase 1 floors held byte-for-byte; Phase 2
-  floors held; full `go test ./... -race` + `make verify-generated`
-  green.
-- **Deferred to PR-2/PR-3 (NOT this task):** `WriteRefs`,
-  `WriteGlobalIndexes`, `AppendComponentEvent`, `Resolver.*`,
-  `RebuildIndexes`, `-x<n>` collision-suffix logic on
-  `catalogSnapshotKey`, `stateCompatibilityWrites` mirror writes.
-- **Spec sources:** `specs/orun-component-catalog/catalog-store.md`
-  (§1, §2, §3 steps A & B, §5, §6), `implementation-plan.md` §C4,
-  `data-model.md` (existing C0 model types), `identity-and-keys.md`
-  §3 (key shape rules used by path validators), `test-plan.md` §1
-  (coverage targets).
+## Current Task — Task 0031 (C4 PR-1 verifier — verify PR #173)
+- **Status:** Scoped 2026-05-31. Prompt at `ai/tasks/task-0031-verifier.md`.
+- **Target:** PR #173 (branch `task-0030-catalogstore-c4-pr1`,
+  `MERGEABLE` / `CLEAN`, CI 4/4 SUCCESS at scope time). Implementer
+  report shipped at `reports/task-0030-catalogstore-c4-pr1.md` on the
+  PR branch; canonical path `ai/reports/task-0030-implementer.md`
+  was not used — verifier's call whether to relocate or accept.
+- **Verification scope:**
+  - PR-boundary audit (eight `internal/catalogstore/` files only;
+    no edits outside that dir; no `refs.go`/`indexes.go`/`resolver.go`).
+  - Write-order audit (B.1→B.2→B.3→B.4 in code AND spy test;
+    fixed graph order `dependencies, systems, apis, resources, owners`).
+  - Pre-flight `ErrInputsInconsistent` exercised for cat↔src,
+    manifest↔src, manifest↔cat mismatch shapes BEFORE any write.
+  - Idempotence + double-wrap mismatch sentinels (`errors.Is`
+    chains to both typed sentinel and `statestore.ErrExists`).
+  - Stub policy: `WriteRefs`/`WriteGlobalIndexes`/`AppendComponentEvent`
+    + every `Resolver` method return `ErrNotImplemented`, pinned by
+    test.
+  - Step B.4 uses plain `Write` (NOT CAS) — local indexes are
+    rebuildable per spec.
+  - No raw FS imports (`os`/`io/ioutil`/`path/filepath`) under
+    `internal/catalogstore/`.
+  - Coverage: `internal/catalogstore` ≥ 90 %; Phase 1 floors held
+    byte-for-byte (statestore 95.7, revision 90.3, executionstate 90.0);
+    Phase 2 floors held (catalogmodel 91.1, sourcectx 91.1,
+    catalogresolve 90.9).
+- **Verifier-only fixes allowed:** moving the implementer report to
+  the canonical path (cosmetic), tiny doc polish required to PASS.
+  Anything beyond that becomes Task 0031.x.
+- **On PASS:** merge PR #173 via Verifier Merge Protocol, sync `main`,
+  scope **Task 0032** (C4 PR-2 implementer — `refs.go` + `indexes.go`
+  covering write-order steps C/D + `AppendComponentEvent` with
+  `seq.lock` retry-up-to-16 contract).
+- **On FAIL:** leave PR #173 open with blockers; remediation stays
+  in the same PR.
+
+## Just Completed — Task 0030 (C4 PR-1 implementer — emitted PR #173)
+- **Status:** Implementer pushed PR #173 on 2026-05-31; CI green;
+  awaiting Task 0031 verifier. Branch
+  `task-0030-catalogstore-c4-pr1`, head `7fec059`. Implementer
+  self-report on the branch at
+  `reports/task-0030-catalogstore-c4-pr1.md`.
+- **Surface delivered (per implementer report):**
+  - `internal/catalogstore/{paths.go, paths_test.go, writer.go,
+    writer_test.go, errors.go, store.go, store_test.go, doc.go}`.
+  - Path helpers from `catalog-store.md` §2 (sources, catalogs,
+    components, refs, local indexes, global indexes, history events)
+    plus `Validate*` siblings; helpers return `(string, error)`,
+    no panics.
+  - Mismatch sentinels `ErrSourceMismatch` / `ErrCatalogMismatch` /
+    `ErrManifestMismatch` double-wrap `statestore.ErrExists` so
+    `errors.Is` succeeds against both.
+  - `ErrInputsInconsistent` pre-flight rejects mismatched (src, cat,
+    manifests) tuples BEFORE any write.
+  - `WriteSourceSnapshot` step A and `WriteCatalogSnapshot` steps
+    B.1→B.2→B.3→B.4 implemented; graph write order fixed via
+    `CatalogGraphKinds()`; B.4 local indexes via plain `Write`
+    (overwrite-OK).
+  - `Writer` / `Resolver` / `Store` interfaces frozen with
+    compile-time assertions on `*store`. `WriteRefs`,
+    `WriteGlobalIndexes`, `AppendComponentEvent`, all `Resolver`
+    methods return `ErrNotImplemented` (pinned by test).
+- **Coverage (claimed):** `internal/catalogstore` 90.7 %; Phase 1 +
+  Phase 2 floors held. Verifier will re-measure and capture exact %.
+- **Implementer assumption to verify:** chose `PrettyEncode` (not
+  `CanonicalEncode`) for body writes. `CanonicalEncode` reserved for
+  hash inputs (used by upstream layers). Confirm consistency in code.
+
 
 ## Repo Checkpoint
 
@@ -107,14 +143,14 @@ C2 (`internal/catalogresolve`) closed on 2026-05-31 via Tasks 0025 (PR #170,
 |---|---|
 | Branch (local checkout) | `main` |
 | `main` tip | `75082ca` — Task 0028 / C3 (PR #172) on 2026-05-31 |
-| Open PRs | none |
-| Repo health | 🟢 Green — C3 closed, all gates green, ready for C4 scope |
+| Open PRs | **#173** — Task 0030 (C4 PR-1, branch `task-0030-catalogstore-c4-pr1`, MERGEABLE/CLEAN, CI green) |
+| Repo health | 🟢 Green — main untouched since C3; PR #173 awaiting verifier |
 | Last verified | 2026-05-31 (Task 0029 verifier PASS) |
 | Active phase | Phase 2 (orun-component-catalog) |
-| Active milestone | C4 (`internal/catalogstore` writer) |
+| Active milestone | C4 (`internal/catalogstore` writer) — PR-1 in flight |
 | Tasks completed | 0001–0005, 0007–0016, 0018–0029 (27 total) |
-| Current task | **0030 (C4 PR-1 implementer: `internal/catalogstore` paths + body writer)** |
-| Next task | TBD — PR-2 (refs + global indexes) once 0030 is verified-merged |
+| Current task | **0031 (C4 PR-1 verifier on PR #173)** |
+| Next task | TBD — Task 0032 (C4 PR-2 implementer: refs.go + indexes.go + AppendComponentEvent) once 0031 is PASS-and-merged |
 
 ## Milestone Sequence (C0 → C9)
 | C  | Status | Goal |
