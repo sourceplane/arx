@@ -2,7 +2,7 @@
 
 **Task:** C5 PR-2 — `orun catalog` read surface (`list`/`describe`/`tree`/`history`/`validate` + `diff` stub)
 **Branch:** `task-0038-catalog-cli-c5-pr2-read-surface`
-**PR:** #<PR_NUMBER>
+**PR:** #177
 
 ## Summary
 
@@ -133,4 +133,4 @@ populate the execution index that `history`/`list STATUS` read; C8 will implemen
 
 ## PR Number
 
-#<PR_NUMBER>
+#177
