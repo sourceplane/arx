@@ -60,6 +60,34 @@ type Config struct {
 	// field". It is intentionally unexported: callers express the choice
 	// via the field above; the writer normalizes inside resolveDefaults.
 	compatibilityWritesSet bool
+
+	// CatalogParent, when both keys are non-empty, requests that
+	// WriteRevision/WriteManifest additionally mirror the revision body
+	// (plan/trigger/revision/manifest.json) under the catalog-parent layout
+	// sources/<SourceKey>/catalogs/<CatalogKey>/revisions/<revKey>/ per
+	// design.md §7 / implementation-plan.md C6. The Phase 1 global-layout
+	// writes (revisions/<revKey>/...) are emitted unconditionally and are
+	// byte-identical regardless of this field, so the compat suite is
+	// unaffected. When either key is empty (e.g. `--no-catalog-refresh`)
+	// the catalog-parent mirror is skipped and only the Phase 1 layout is
+	// written.
+	CatalogParent CatalogParentRef
+}
+
+// CatalogParentRef identifies the (SourceSnapshot, CatalogSnapshot) the plan
+// resolved against. Both keys must be non-empty for the catalog-parent
+// mirror to be written; the keys are validated as path segments by the
+// catalogstore path helpers before any write occurs.
+type CatalogParentRef struct {
+	SourceKey  string
+	CatalogKey string
+}
+
+// active reports whether the catalog-parent mirror should be written: both
+// keys must be present. A zero-value CatalogParentRef (the Phase 1 default,
+// and the `--no-catalog-refresh` case) returns false.
+func (c CatalogParentRef) active() bool {
+	return c.SourceKey != "" && c.CatalogKey != ""
 }
 
 // resolveDefaults returns a Config copy with nil functions filled in and
@@ -277,6 +305,17 @@ func WriteRevision(
 	// writes entirely.
 	if cfg.CompatibilityWrites {
 		if err := writeCompatibilityMirror(ctx, store, rev, planBytes); err != nil {
+			return PlanRevision{}, err
+		}
+	}
+
+	// Catalog-parent mirror (design.md §7 / C6). Additive: only runs when
+	// the caller resolved a (source, catalog) snapshot pair. The Phase 1
+	// global-layout writes above are unaffected, so the compat suite stays
+	// green. The mirror reuses the exact trigger.json / revision.json /
+	// plan.json bytes already persisted so the two layouts are byte-identical.
+	if cfg.CatalogParent.active() {
+		if err := writeCatalogParentRevision(ctx, store, cfg.CatalogParent, rev, trig, planBytes); err != nil {
 			return PlanRevision{}, err
 		}
 	}
