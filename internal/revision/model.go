@@ -61,17 +61,19 @@ const (
 // JSON tag order MUST match the spec byte-for-byte; downstream readers
 // (manifest writer, CLI describe) discriminate on these field names.
 type PlanRevision struct {
-	APIVersion    string                    `json:"apiVersion"`
-	Kind          string                    `json:"kind"`
-	RevisionID    string                    `json:"revisionId"`
-	RevisionKey   string                    `json:"revisionKey"`
-	TriggerID     string                    `json:"triggerId"`
-	TriggerKey    string                    `json:"triggerKey"`
-	PlanHash      string                    `json:"planHash"`
-	PlanShortHash string                    `json:"planShortHash"`
-	Source        triggerctx.TriggerSource  `json:"source"`
-	Summary       RevSummary                `json:"summary"`
-	CreatedAt     time.Time                 `json:"createdAt"`
+	APIVersion         string                    `json:"apiVersion"`
+	Kind               string                    `json:"kind"`
+	RevisionID         string                    `json:"revisionId"`
+	RevisionKey        string                    `json:"revisionKey"`
+	TriggerID          string                    `json:"triggerId"`
+	TriggerKey         string                    `json:"triggerKey"`
+	PlanHash           string                    `json:"planHash"`
+	PlanShortHash      string                    `json:"planShortHash"`
+	Source             triggerctx.TriggerSource  `json:"source"`
+	Summary            RevSummary                `json:"summary"`
+	SourceSnapshotKey  string                    `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string                    `json:"catalogSnapshotKey,omitempty"`
+	CreatedAt          time.Time                 `json:"createdAt"`
 }
 
 // RevSummary captures the plan-shape fields surfaced in revision.json

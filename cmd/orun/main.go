@@ -390,6 +390,40 @@ func generatePlan() error {
 		fmt.Println("\n" + renderer.DebugDump(plan))
 	}
 
+	// Resolve catalog context before computing the plan hash so source/catalog
+	// metadata is included in the hash. A plan compiled against a different
+	// catalog should produce a different revision key.
+	catRes, err := resolvePlanCatalog(context.Background(), planCatalogOptions{
+		NoRefresh:      planNoCatalogRefresh,
+		Strict:         planCatalogStrict,
+		SourceSelector: planCatalogSource,
+		SnapshotKey:    planCatalogSnapshot,
+	})
+	if err != nil {
+		return fmt.Errorf("resolve plan catalog: %w", err)
+	}
+
+	// Stamp source/catalog metadata into the plan when resolved.
+	if catRes.Resolved && catRes.Source != nil {
+		plan.Metadata.Source = &model.PlanSourceMeta{
+			SnapshotKey:  catRes.Source.SourceSnapshotKey,
+			Ref:          catRes.Source.Ref,
+			HeadRevision: catRes.Source.HeadRevision,
+			TreeHash:     catRes.Source.TreeHash,
+			WorkingTree:  catRes.Source.WorkingTree,
+			DirtyHash:    catRes.Source.DirtyHash,
+		}
+	}
+	if catRes.Resolved && catRes.Catalog != nil {
+		plan.Metadata.Catalog = &model.PlanCatalogMeta{
+			SnapshotKey:       catRes.Catalog.CatalogSnapshotKey,
+			CatalogHash:      catRes.Catalog.CatalogHash,
+			SourceSnapshotKey: catRes.Catalog.SourceSnapshotKey,
+		}
+	} else if catRes.Skipped {
+		plan.Metadata.Catalog = &model.PlanCatalogMeta{Skipped: true}
+	}
+
 	// Compute planHash from the plan with metadata.revision and
 	// metadata.checksum cleared — that is the spec-canonical "plan content
 	// without its self-reference" (data-model.md §3.1). We then embed
@@ -430,17 +464,6 @@ func generatePlan() error {
 	stateStore, err := statestore.NewLocalStore(statestore.LocalConfig{Root: absStoreRoot})
 	if err != nil {
 		return fmt.Errorf("open state store: %w", err)
-	}
-
-	// Resolve the current workspace into a (source, catalog) snapshot and
-	// persist it, so the revision can be mirrored under the catalog parent
-	// (design.md §7 / C6). Best-effort in PR1: a resolution failure degrades
-	// to the Phase 1 global layout. The plan flags (--no-catalog-refresh /
-	// --catalog-source / --catalog-snapshot / --catalog-strict) are wired in
-	// PR2; PR1 always attempts a best-effort refresh.
-	catRes, err := resolvePlanCatalog(context.Background(), planCatalogOptions{})
-	if err != nil {
-		return fmt.Errorf("resolve plan catalog: %w", err)
 	}
 
 	revCfg := revision.Config{

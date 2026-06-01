@@ -3,11 +3,15 @@ package main
 import "github.com/spf13/cobra"
 
 var (
-	planName         string
-	planComponents   []string
-	planLong         bool
-	artifactBackend  string
-	githubOutput     bool
+	planName              string
+	planComponents        []string
+	planLong              bool
+	artifactBackend       string
+	githubOutput          bool
+	planNoCatalogRefresh  bool
+	planCatalogSource     string
+	planCatalogSnapshot   string
+	planCatalogStrict     bool
 )
 
 var planCmd = &cobra.Command{
@@ -47,4 +51,9 @@ func registerPlanCommand(root *cobra.Command) {
 	planCmd.Flags().StringVar(&eventFile, "event-file", "", "Path to provider event JSON file")
 	planCmd.Flags().StringVar(&artifactBackend, "artifact", "", "Artifact backend for upload (e.g. github)")
 	planCmd.Flags().BoolVar(&githubOutput, "github-output", false, "Write matrix/plan_id/exec_id to $GITHUB_OUTPUT")
+
+	planCmd.Flags().BoolVar(&planNoCatalogRefresh, "no-catalog-refresh", false, "Skip catalog refresh; plan proceeds without catalog context")
+	planCmd.Flags().StringVar(&planCatalogSource, "catalog-source", "", "Select a specific source ref (current|main|latest|branches/<name>|prs/<n>)")
+	planCmd.Flags().StringVar(&planCatalogSnapshot, "catalog-snapshot", "", "Pin to an explicit catalogSnapshotKey (bypasses refresh)")
+	planCmd.Flags().BoolVar(&planCatalogStrict, "catalog-strict", false, "Fail plan on catalog resolution errors")
 }
