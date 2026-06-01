@@ -22,13 +22,13 @@ import (
 // JSON encoder emits struct fields in declaration order so this type's
 // layout determines the byte-level output.
 type RevisionManifest struct {
-	APIVersion string                  `json:"apiVersion"`
-	Kind       string                  `json:"kind"`
-	Revision   ManifestRevision        `json:"revision"`
-	Trigger    ManifestTrigger         `json:"trigger"`
+	APIVersion string                   `json:"apiVersion"`
+	Kind       string                   `json:"kind"`
+	Revision   ManifestRevision         `json:"revision"`
+	Trigger    ManifestTrigger          `json:"trigger"`
 	Source     triggerctx.TriggerSource `json:"source"`
-	Summary    ManifestSummary         `json:"summary"`
-	Objects    ManifestObjects         `json:"objects"`
+	Summary    ManifestSummary          `json:"summary"`
+	Objects    ManifestObjects          `json:"objects"`
 }
 
 // ManifestRevision is the per-manifest projection of revision.json.
@@ -117,6 +117,16 @@ func WriteManifest(
 	if _, err := cfg.Store.Write(ctx, path,
 		marshalCanonicalJSON(manifest), statestore.WriteOptions{}); err != nil {
 		return fmt.Errorf("write manifest.json: %w", err)
+	}
+
+	// Catalog-parent mirror (design.md §7 / C6) — additive, byte-identical
+	// projection under sources/<srcKey>/catalogs/<catKey>/revisions/<revKey>/.
+	// Only runs when a (source, catalog) pair was resolved; the Phase 1
+	// manifest above is unaffected so the compat suite stays green.
+	if cfg.CatalogParent.active() {
+		if err := writeCatalogParentManifest(ctx, cfg.Store, cfg.CatalogParent, manifest, rev.RevisionKey); err != nil {
+			return err
+		}
 	}
 	return nil
 }

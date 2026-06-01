@@ -306,6 +306,33 @@ func CatalogRevisionPlanPath(srcKey, catKey, revKey string) (string, error) {
 	return pathJoin(dir, "plan.json"), nil
 }
 
+// CatalogRevisionTriggerPath returns ".../revisions/<revKey>/trigger.json".
+func CatalogRevisionTriggerPath(srcKey, catKey, revKey string) (string, error) {
+	dir, err := CatalogRevisionDir(srcKey, catKey, revKey)
+	if err != nil {
+		return "", err
+	}
+	return pathJoin(dir, "trigger.json"), nil
+}
+
+// CatalogRevisionDocPath returns ".../revisions/<revKey>/revision.json".
+func CatalogRevisionDocPath(srcKey, catKey, revKey string) (string, error) {
+	dir, err := CatalogRevisionDir(srcKey, catKey, revKey)
+	if err != nil {
+		return "", err
+	}
+	return pathJoin(dir, "revision.json"), nil
+}
+
+// CatalogRevisionManifestPath returns ".../revisions/<revKey>/manifest.json".
+func CatalogRevisionManifestPath(srcKey, catKey, revKey string) (string, error) {
+	dir, err := CatalogRevisionDir(srcKey, catKey, revKey)
+	if err != nil {
+		return "", err
+	}
+	return pathJoin(dir, "manifest.json"), nil
+}
+
 // CatalogExecutionDir returns
 // ".../revisions/<revKey>/executions/<execKey>".
 func CatalogExecutionDir(srcKey, catKey, revKey, execKey string) (string, error) {
