@@ -213,7 +213,7 @@ func mergeComponentGlobalIndex(current, want catalogmodel.ComponentGlobalIndex) 
 func WriteComponentExecutionIndex(
 	ctx context.Context,
 	state statestore.StateStore,
-	srcKey, catKey, name string,
+	srcKey, catKey, name, componentKey string,
 	row catalogmodel.ComponentExecutionRow,
 ) error {
 	if err := ValidateSourceKey(srcKey); err != nil {
@@ -225,16 +225,28 @@ func WriteComponentExecutionIndex(
 	if err := ValidateComponentName(name); err != nil {
 		return fmt.Errorf("WriteComponentExecutionIndex: %w", err)
 	}
+	if err := catalogmodel.ValidateComponentKey(componentKey); err != nil {
+		return fmt.Errorf("WriteComponentExecutionIndex: %w: %v", ErrInvalidPathInput, err)
+	}
 
 	p, err := ComponentLocalIndexPath(srcKey, catKey, name)
 	if err != nil {
 		return fmt.Errorf("WriteComponentExecutionIndex: %w", err)
 	}
+	if row.ComponentKey == "" {
+		row.ComponentKey = componentKey
+	}
+	if row.SourceSnapshotKey == "" {
+		row.SourceSnapshotKey = srcKey
+	}
+	if row.CatalogSnapshotKey == "" {
+		row.CatalogSnapshotKey = catKey
+	}
 
 	initial := catalogmodel.ComponentExecutionIndex{
 		APIVersion:         catalogmodel.APIVersionV1Alpha1,
-		Kind:               "ComponentExecutionIndex",
-		ComponentKey:       name,
+		Kind:               catalogmodel.KindComponentExecIndex,
+		ComponentKey:       componentKey,
 		SourceSnapshotKey:  srcKey,
 		CatalogSnapshotKey: catKey,
 		Executions:         []catalogmodel.ComponentExecutionRow{row},
@@ -261,7 +273,12 @@ func WriteComponentExecutionIndex(
 		if err := json.Unmarshal(got, &current); err != nil {
 			return fmt.Errorf("WriteComponentExecutionIndex: decode %s: %w", p, err)
 		}
-		current.Executions = append(current.Executions, row)
+		if current.ComponentKey == "" || current.ComponentKey == name {
+			current.ComponentKey = componentKey
+		}
+		current.SourceSnapshotKey = srcKey
+		current.CatalogSnapshotKey = catKey
+		current.Executions = upsertComponentExecutionRow(current.Executions, row)
 		merged, err := catalogmodel.PrettyEncode(current)
 		if err != nil {
 			return fmt.Errorf("WriteComponentExecutionIndex: encode merged: %w", err)
@@ -276,4 +293,17 @@ func WriteComponentExecutionIndex(
 		lastConflict = casErr
 	}
 	return fmt.Errorf("%w: %w", ErrRefStale, lastConflict)
+}
+
+func upsertComponentExecutionRow(rows []catalogmodel.ComponentExecutionRow, row catalogmodel.ComponentExecutionRow) []catalogmodel.ComponentExecutionRow {
+	for i := range rows {
+		if rows[i].RevisionKey == row.RevisionKey &&
+			rows[i].ExecutionKey == row.ExecutionKey &&
+			rows[i].Profile == row.Profile &&
+			rows[i].Environment == row.Environment {
+			rows[i] = row
+			return rows
+		}
+	}
+	return append(rows, row)
 }

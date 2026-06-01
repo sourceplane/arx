@@ -252,3 +252,46 @@ func TestWriteGlobalIndexes_NilComponentSkipped(t *testing.T) {
 		t.Errorf("good component should still be written; objects=%v", keys(spy.objects))
 	}
 }
+
+func TestWriteComponentExecutionIndex_FullKeyAndUpsert(t *testing.T) {
+	spy := newSpyStore()
+	ctx := context.Background()
+	componentKey := "sourceplane/orun/aaa"
+	row := catalogmodel.ComponentExecutionRow{
+		RevisionKey:  "rev-main-abcdef0-pfeedface",
+		ExecutionKey: "run-001",
+		TriggerName:  "system.manual",
+		Profile:      "worker.verify",
+		Environment:  "dev",
+		Status:       "running",
+		CreatedAt:    "2026-06-01T00:00:00Z",
+	}
+	if err := catalogstore.WriteComponentExecutionIndex(ctx, spy, testSrcKey, testCatKey, "aaa", componentKey, row); err != nil {
+		t.Fatalf("WriteComponentExecutionIndex first: %v", err)
+	}
+	row.Status = "completed"
+	if err := catalogstore.WriteComponentExecutionIndex(ctx, spy, testSrcKey, testCatKey, "aaa", componentKey, row); err != nil {
+		t.Fatalf("WriteComponentExecutionIndex second: %v", err)
+	}
+
+	p, _ := catalogstore.ComponentLocalIndexPath(testSrcKey, testCatKey, "aaa")
+	body, ok := spy.objects[p]
+	if !ok {
+		t.Fatalf("missing component execution index at %s", p)
+	}
+	var idx catalogmodel.ComponentExecutionIndex
+	if err := json.Unmarshal(body, &idx); err != nil {
+		t.Fatalf("decode index: %v", err)
+	}
+	if idx.ComponentKey != componentKey {
+		t.Fatalf("ComponentKey = %q; want %q", idx.ComponentKey, componentKey)
+	}
+	if len(idx.Executions) != 1 {
+		t.Fatalf("executions = %+v; want one upserted row", idx.Executions)
+	}
+	got := idx.Executions[0]
+	if got.Status != "completed" || got.ComponentKey != componentKey ||
+		got.SourceSnapshotKey != testSrcKey || got.CatalogSnapshotKey != testCatKey {
+		t.Fatalf("bad row after upsert: %+v", got)
+	}
+}

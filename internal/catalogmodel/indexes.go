@@ -40,22 +40,25 @@ type ComponentIndexPreview struct {
 //
 //	sources/<sourceSnapshotKey>/catalogs/<catalogSnapshotKey>/indexes/components/<componentName>.json
 type ComponentExecutionIndex struct {
-	APIVersion         string                   `json:"apiVersion"`
-	Kind               string                   `json:"kind"`
-	ComponentKey       string                   `json:"componentKey"`
-	SourceSnapshotKey  string                   `json:"sourceSnapshotKey"`
-	CatalogSnapshotKey string                   `json:"catalogSnapshotKey"`
-	Executions         []ComponentExecutionRow  `json:"executions"`
+	APIVersion         string                  `json:"apiVersion"`
+	Kind               string                  `json:"kind"`
+	ComponentKey       string                  `json:"componentKey"`
+	SourceSnapshotKey  string                  `json:"sourceSnapshotKey"`
+	CatalogSnapshotKey string                  `json:"catalogSnapshotKey"`
+	Executions         []ComponentExecutionRow `json:"executions"`
 }
 
 // ComponentExecutionRow is one entry in a ComponentExecutionIndex —
 // denormalized from the per-execution metadata for fast listing.
 type ComponentExecutionRow struct {
-	RevisionKey  string `json:"revisionKey"`
-	ExecutionKey string `json:"executionKey"`
-	TriggerName  string `json:"triggerName"`
-	Profile      string `json:"profile"`
-	Environment  string `json:"environment"`
-	Status       string `json:"status"`
-	CreatedAt    string `json:"createdAt"`
+	ComponentKey       string `json:"componentKey,omitempty"`
+	SourceSnapshotKey  string `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string `json:"catalogSnapshotKey,omitempty"`
+	RevisionKey        string `json:"revisionKey"`
+	ExecutionKey       string `json:"executionKey"`
+	TriggerName        string `json:"triggerName"`
+	Profile            string `json:"profile"`
+	Environment        string `json:"environment"`
+	Status             string `json:"status"`
+	CreatedAt          string `json:"createdAt"`
 }

@@ -213,16 +213,34 @@ func TestCreateExecution_CatalogParentWritesCanonicalExecution(t *testing.T) {
 	if idx.Path != wantDir {
 		t.Fatalf("index Path = %q; want catalog dir %q", idx.Path, wantDir)
 	}
+	if idx.SourceSnapshotKey != cfg.CatalogParent.SourceKey || idx.CatalogSnapshotKey != cfg.CatalogParent.CatalogKey {
+		t.Fatalf("index parent keys = %q/%q", idx.SourceSnapshotKey, idx.CatalogSnapshotKey)
+	}
+	raw, _, err := cfg.Store.Read(context.Background(), catalogPath)
+	if err != nil {
+		t.Fatalf("read catalog execution.json: %v", err)
+	}
+	if !strings.Contains(string(raw), `"sourceSnapshotKey": "`+cfg.CatalogParent.SourceKey+`"`) ||
+		!strings.Contains(string(raw), `"catalogSnapshotKey": "`+cfg.CatalogParent.CatalogKey+`"`) {
+		t.Fatalf("catalog execution missing parent keys:\n%s", raw)
+	}
 
 	if _, err := MarkTerminal(context.Background(), cfg, revKey, rec.ExecutionKey, StatusCompleted, ExecSummary{Total: 1, Completed: 1}); err != nil {
 		t.Fatalf("MarkTerminal: %v", err)
 	}
-	raw, _, err := cfg.Store.Read(context.Background(), catalogPath)
+	raw, _, err = cfg.Store.Read(context.Background(), catalogPath)
 	if err != nil {
 		t.Fatalf("read terminal catalog execution.json: %v", err)
 	}
 	if !strings.Contains(string(raw), `"status": "completed"`) {
 		t.Fatalf("catalog execution not terminal:\n%s", raw)
+	}
+	latest, _, err := statestore.ReadLatestExecutionRef(context.Background(), cfg.Store)
+	if err != nil {
+		t.Fatalf("ReadLatestExecutionRef: %v", err)
+	}
+	if latest.SourceSnapshotKey != cfg.CatalogParent.SourceKey || latest.CatalogSnapshotKey != cfg.CatalogParent.CatalogKey {
+		t.Fatalf("latest execution parent keys = %q/%q", latest.SourceSnapshotKey, latest.CatalogSnapshotKey)
 	}
 }
 

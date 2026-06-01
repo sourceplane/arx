@@ -25,23 +25,27 @@ import (
 // RevisionIndexEntry encodes indexes/revisions/<revisionKey>.json
 // (data-model.md §7.1).
 type RevisionIndexEntry struct {
-	RevisionKey string    `json:"revisionKey"`
-	RevisionID  string    `json:"revisionId"`
-	TriggerKey  string    `json:"triggerKey"`
-	PlanHash    string    `json:"planHash"`
-	CreatedAt   time.Time `json:"createdAt"`
-	Path        string    `json:"path"`
+	RevisionKey        string    `json:"revisionKey"`
+	RevisionID         string    `json:"revisionId"`
+	TriggerKey         string    `json:"triggerKey"`
+	PlanHash           string    `json:"planHash"`
+	SourceSnapshotKey  string    `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string    `json:"catalogSnapshotKey,omitempty"`
+	CreatedAt          time.Time `json:"createdAt"`
+	Path               string    `json:"path"`
 }
 
 // ExecutionIndexEntry encodes indexes/executions/<executionKey>.json
 // (data-model.md §7.2).
 type ExecutionIndexEntry struct {
-	ExecutionKey string    `json:"executionKey"`
-	ExecutionID  string    `json:"executionId"`
-	RevisionKey  string    `json:"revisionKey"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"createdAt"`
-	Path         string    `json:"path"`
+	ExecutionKey       string    `json:"executionKey"`
+	ExecutionID        string    `json:"executionId"`
+	RevisionKey        string    `json:"revisionKey"`
+	SourceSnapshotKey  string    `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string    `json:"catalogSnapshotKey,omitempty"`
+	Status             string    `json:"status"`
+	CreatedAt          time.Time `json:"createdAt"`
+	Path               string    `json:"path"`
 }
 
 // ReadRevisionIndex reads indexes/revisions/<revisionKey>.json. Returns

@@ -72,23 +72,25 @@ const (
 // them omitempty — a zero time.Time would still serialize when the field
 // is non-pointer.
 type ExecutionRun struct {
-	APIVersion   string        `json:"apiVersion"`
-	Kind         string        `json:"kind"`
-	ExecutionID  string        `json:"executionId"`
-	ExecutionKey string        `json:"executionKey"`
-	OriginalKey  string        `json:"originalKey,omitempty"`
-	RevisionID   string        `json:"revisionId"`
-	RevisionKey  string        `json:"revisionKey"`
-	TriggerID    string        `json:"triggerId"`
-	TriggerKey   string        `json:"triggerKey"`
-	Reason       string        `json:"reason"`
-	Status       string        `json:"status"`
-	Attempt      int           `json:"attempt"`
-	Runner       RunnerProfile `json:"runner"`
-	Summary      ExecSummary   `json:"summary"`
-	CreatedAt    time.Time     `json:"createdAt"`
-	StartedAt    *time.Time    `json:"startedAt,omitempty"`
-	FinishedAt   *time.Time    `json:"finishedAt,omitempty"`
+	APIVersion         string        `json:"apiVersion"`
+	Kind               string        `json:"kind"`
+	ExecutionID        string        `json:"executionId"`
+	ExecutionKey       string        `json:"executionKey"`
+	OriginalKey        string        `json:"originalKey,omitempty"`
+	RevisionID         string        `json:"revisionId"`
+	RevisionKey        string        `json:"revisionKey"`
+	TriggerID          string        `json:"triggerId"`
+	TriggerKey         string        `json:"triggerKey"`
+	Reason             string        `json:"reason"`
+	Status             string        `json:"status"`
+	Attempt            int           `json:"attempt"`
+	Runner             RunnerProfile `json:"runner"`
+	Summary            ExecSummary   `json:"summary"`
+	SourceSnapshotKey  string        `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string        `json:"catalogSnapshotKey,omitempty"`
+	CreatedAt          time.Time     `json:"createdAt"`
+	StartedAt          *time.Time    `json:"startedAt,omitempty"`
+	FinishedAt         *time.Time    `json:"finishedAt,omitempty"`
 }
 
 // RunnerProfile records the runner attached to an execution (data-model.md

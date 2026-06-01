@@ -345,23 +345,30 @@ func CreateExecution(ctx context.Context, cfg Config, in CreateExecutionInput) (
 			execKey = k
 		}
 
+		sourceKey, catalogKey := "", ""
+		if cfg.CatalogParent.Active() {
+			sourceKey = cfg.CatalogParent.SourceKey
+			catalogKey = cfg.CatalogParent.CatalogKey
+		}
 		rec := ExecutionRun{
-			APIVersion:   APIVersion,
-			Kind:         KindName,
-			ExecutionID:  cfg.NewID(),
-			ExecutionKey: execKey,
-			OriginalKey:  in.OriginalKey,
-			RevisionID:   in.RevisionID,
-			RevisionKey:  in.RevisionKey,
-			TriggerID:    in.TriggerID,
-			TriggerKey:   in.TriggerKey,
-			Reason:       in.Reason,
-			Status:       in.Status,
-			Attempt:      attempt,
-			Runner:       in.Runner,
-			Summary:      in.Summary,
-			CreatedAt:    now,
-			StartedAt:    in.StartedAt,
+			APIVersion:         APIVersion,
+			Kind:               KindName,
+			ExecutionID:        cfg.NewID(),
+			ExecutionKey:       execKey,
+			OriginalKey:        in.OriginalKey,
+			RevisionID:         in.RevisionID,
+			RevisionKey:        in.RevisionKey,
+			TriggerID:          in.TriggerID,
+			TriggerKey:         in.TriggerKey,
+			Reason:             in.Reason,
+			Status:             in.Status,
+			Attempt:            attempt,
+			Runner:             in.Runner,
+			Summary:            in.Summary,
+			SourceSnapshotKey:  sourceKey,
+			CatalogSnapshotKey: catalogKey,
+			CreatedAt:          now,
+			StartedAt:          in.StartedAt,
 		}
 		_, err := store.CreateIfAbsent(ctx,
 			statestore.ExecutionDocPath(in.RevisionKey, execKey),
@@ -392,12 +399,14 @@ func finalizeExecution(ctx context.Context, cfg Config, rec ExecutionRun, now ti
 	// Step 3 — execution-index entry. Re-claiming an existing entry
 	// (idempotent rerun under the same exec key) is treated as success.
 	idx := statestore.ExecutionIndexEntry{
-		ExecutionKey: rec.ExecutionKey,
-		ExecutionID:  rec.ExecutionID,
-		RevisionKey:  rec.RevisionKey,
-		Status:       rec.Status,
-		CreatedAt:    now,
-		Path:         statestore.ExecutionDir(rec.RevisionKey, rec.ExecutionKey),
+		ExecutionKey:       rec.ExecutionKey,
+		ExecutionID:        rec.ExecutionID,
+		RevisionKey:        rec.RevisionKey,
+		SourceSnapshotKey:  rec.SourceSnapshotKey,
+		CatalogSnapshotKey: rec.CatalogSnapshotKey,
+		Status:             rec.Status,
+		CreatedAt:          now,
+		Path:               statestore.ExecutionDir(rec.RevisionKey, rec.ExecutionKey),
 	}
 	if cfg.CatalogParent.Active() {
 		p, err := catalogstore.CatalogExecutionDir(cfg.CatalogParent.SourceKey, cfg.CatalogParent.CatalogKey, rec.RevisionKey, rec.ExecutionKey)
@@ -415,11 +424,13 @@ func finalizeExecution(ctx context.Context, cfg Config, rec ExecutionRun, now ti
 	// data-model.md §6.2 (callers needing CAS use CASLatestExecutionRef
 	// directly).
 	if _, err := statestore.WriteLatestExecutionRef(ctx, store, statestore.LatestExecutionRef{
-		RevisionKey:  rec.RevisionKey,
-		ExecutionKey: rec.ExecutionKey,
-		ExecutionID:  rec.ExecutionID,
-		Status:       rec.Status,
-		CreatedAt:    now,
+		RevisionKey:        rec.RevisionKey,
+		ExecutionKey:       rec.ExecutionKey,
+		ExecutionID:        rec.ExecutionID,
+		SourceSnapshotKey:  rec.SourceSnapshotKey,
+		CatalogSnapshotKey: rec.CatalogSnapshotKey,
+		Status:             rec.Status,
+		CreatedAt:          now,
 	}); err != nil {
 		return fmt.Errorf("write latest-execution ref: %w", err)
 	}
@@ -544,6 +555,10 @@ func MarkTerminal(
 		next := current
 		next.Status = status
 		next.Summary = summary
+		if cfg.CatalogParent.Active() {
+			next.SourceSnapshotKey = cfg.CatalogParent.SourceKey
+			next.CatalogSnapshotKey = cfg.CatalogParent.CatalogKey
+		}
 		now := cfg.Now().UTC()
 		if next.FinishedAt == nil {
 			finished := now
@@ -572,11 +587,13 @@ func MarkTerminal(
 			// refresh.
 			if _, err := statestore.WriteLatestExecutionRef(ctx, store,
 				statestore.LatestExecutionRef{
-					RevisionKey:  next.RevisionKey,
-					ExecutionKey: next.ExecutionKey,
-					ExecutionID:  next.ExecutionID,
-					Status:       next.Status,
-					CreatedAt:    now,
+					RevisionKey:        next.RevisionKey,
+					ExecutionKey:       next.ExecutionKey,
+					ExecutionID:        next.ExecutionID,
+					SourceSnapshotKey:  next.SourceSnapshotKey,
+					CatalogSnapshotKey: next.CatalogSnapshotKey,
+					Status:             next.Status,
+					CreatedAt:          now,
 				}); err != nil {
 				return ExecutionRun{}, fmt.Errorf("refresh latest-execution ref: %w", err)
 			}

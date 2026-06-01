@@ -116,10 +116,18 @@ func TestEmitCatalogExecutionEventsAndIndex(t *testing.T) {
 	if !found || len(idx.Executions) != 1 {
 		t.Fatalf("index found=%v executions=%v", found, idx.Executions)
 	}
+	if idx.ComponentKey != "sourceplane/orun/api-edge" {
+		t.Fatalf("index ComponentKey = %q", idx.ComponentKey)
+	}
 	row := idx.Executions[0]
 	if row.ExecutionKey != rx.execKey || row.Status != executionstate.StatusCompleted ||
 		row.TriggerName != "system.manual" || row.Profile != "worker.verify" || row.Environment != "dev" {
 		t.Fatalf("bad execution row: %+v", row)
+	}
+	if row.ComponentKey != "sourceplane/orun/api-edge" ||
+		row.SourceSnapshotKey != parent.SourceKey ||
+		row.CatalogSnapshotKey != parent.CatalogKey {
+		t.Fatalf("bad execution row lineage: %+v", row)
 	}
 }
 

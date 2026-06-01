@@ -101,6 +101,17 @@ func runCatalogHistory(ctx context.Context, arg string) error {
 	}
 
 	rows := append([]catalogmodel.ComponentExecutionRow(nil), idx.Executions...)
+	for i := range rows {
+		if rows[i].ComponentKey == "" {
+			rows[i].ComponentKey = idx.ComponentKey
+		}
+		if rows[i].SourceSnapshotKey == "" {
+			rows[i].SourceSnapshotKey = idx.SourceSnapshotKey
+		}
+		if rows[i].CatalogSnapshotKey == "" {
+			rows[i].CatalogSnapshotKey = idx.CatalogSnapshotKey
+		}
+	}
 	rows = filterHistoryRows(rows)
 	sort.SliceStable(rows, func(a, b int) bool { return rows[a].CreatedAt > rows[b].CreatedAt })
 	if catalogHistoryLimitFlag > 0 && len(rows) > catalogHistoryLimitFlag {

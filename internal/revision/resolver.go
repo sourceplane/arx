@@ -223,7 +223,21 @@ func resolveFromRevisionKey(ctx context.Context, store statestore.StateStore, re
 		return RevisionRef{}, fmt.Errorf("read revision index %q: %w", revKey, err)
 	}
 
-	return resolveFromRevisionDir(ctx, store, statestore.RevisionDir(revKey), revKey)
+	ref, err := resolveFromRevisionDir(ctx, store, statestore.RevisionDir(revKey), revKey)
+	if err == nil {
+		return ref, nil
+	}
+	if !errors.Is(err, statestore.ErrNotFound) {
+		return RevisionRef{}, err
+	}
+	catRef, catErr := resolveFromCatalogTree(ctx, store, revKey)
+	if catErr == nil {
+		return catRef, nil
+	}
+	if !errors.Is(catErr, statestore.ErrNotFound) {
+		return RevisionRef{}, catErr
+	}
+	return RevisionRef{}, err
 }
 
 func resolveFromRevisionDir(ctx context.Context, store statestore.StateStore, dir, revKey string) (RevisionRef, error) {
@@ -257,6 +271,35 @@ func resolveFromRevisionDir(ctx context.Context, store statestore.StateStore, di
 		Trigger:   trig,
 		PlanBytes: planBytes,
 	}, nil
+}
+
+func resolveFromCatalogTree(ctx context.Context, store statestore.StateStore, revKey string) (RevisionRef, error) {
+	infos, err := store.List(ctx, "sources")
+	if err != nil {
+		return RevisionRef{}, fmt.Errorf("list catalog revisions: %w", err)
+	}
+	var dirs []string
+	for _, info := range infos {
+		parts := strings.Split(strings.Trim(info.Path, "/"), "/")
+		if len(parts) != 7 {
+			continue
+		}
+		if parts[0] != "sources" || parts[2] != "catalogs" || parts[4] != "revisions" ||
+			parts[5] != revKey || parts[6] != "plan.json" {
+			continue
+		}
+		dirs = append(dirs, path.Join(parts[:6]...))
+	}
+	switch len(dirs) {
+	case 0:
+		return RevisionRef{}, fmt.Errorf("%w: catalog revision %q not found", statestore.ErrNotFound, revKey)
+	case 1:
+		return resolveFromRevisionDir(ctx, store, dirs[0], revKey)
+	default:
+		sort.Strings(dirs)
+		return RevisionRef{}, fmt.Errorf("%w: revision %q appears in multiple catalog parents: %v",
+			statestore.ErrConflict, revKey, dirs)
+	}
 }
 
 func resolveFromRevisionPrefix(ctx context.Context, store statestore.StateStore, prefix string) (RevisionRef, error) {

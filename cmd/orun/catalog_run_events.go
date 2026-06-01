@@ -47,7 +47,7 @@ func emitCatalogExecutionStarted(
 		if job.Component == "" {
 			continue
 		}
-		dedup := job.Component + "/" + job.Environment
+		dedup := job.Component + "/" + job.Environment + "/" + job.Profile
 		if _, ok := seen[dedup]; ok {
 			continue
 		}
@@ -105,7 +105,7 @@ func emitCatalogExecutionTerminal(
 		if job.Component == "" {
 			continue
 		}
-		dedup := job.Component + "/" + job.Environment
+		dedup := job.Component + "/" + job.Environment + "/" + job.Profile
 		if _, ok := seen[dedup]; ok {
 			continue
 		}
@@ -132,18 +132,21 @@ func emitCatalogExecutionTerminal(
 		}
 
 		row := catalogmodel.ComponentExecutionRow{
-			RevisionKey:  rx.revKey,
-			ExecutionKey: rx.execKey,
-			TriggerName:  rx.triggerName,
-			Profile:      job.Profile,
-			Environment:  job.Environment,
-			Status:       status,
-			CreatedAt:    now,
+			ComponentKey:       compKey,
+			SourceSnapshotKey:  rx.catalogParent.SourceKey,
+			CatalogSnapshotKey: rx.catalogParent.CatalogKey,
+			RevisionKey:        rx.revKey,
+			ExecutionKey:       rx.execKey,
+			TriggerName:        rx.triggerName,
+			Profile:            job.Profile,
+			Environment:        job.Environment,
+			Status:             status,
+			CreatedAt:          now,
 		}
 		if err := catalogstore.WriteComponentExecutionIndex(
 			ctx, store,
 			rx.catalogParent.SourceKey, rx.catalogParent.CatalogKey,
-			job.Component, row,
+			job.Component, compKey, row,
 		); err != nil {
 			warnCatalogEvent("execution-index-update", job.Component, err)
 		}
