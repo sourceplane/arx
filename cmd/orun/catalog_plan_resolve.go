@@ -70,6 +70,14 @@ type planCatalogOptions struct {
 	// Strict promotes a resolution/validation failure from a silent skip to
 	// a hard error (`--catalog-strict`).
 	Strict bool
+
+	// SourceSelector, when non-empty, resolves an existing source/catalog
+	// ref instead of building a fresh snapshot (`--catalog-source`).
+	SourceSelector string
+
+	// SnapshotKey, when non-empty, pins directly to an existing catalog
+	// snapshot key instead of refreshing (`--catalog-snapshot`).
+	SnapshotKey string
 }
 
 // resolvePlanCatalog resolves the current workspace into a catalog snapshot,
@@ -82,22 +90,66 @@ func resolvePlanCatalog(ctx context.Context, opts planCatalogOptions) (planCatal
 		ctx = context.Background()
 	}
 	if opts.NoRefresh {
-		// Deliberate bypass: no source/catalog keys, mirror skipped. PR2
-		// stamps metadata.catalog.skipped = true from Skipped.
 		return planCatalogResolution{Skipped: true}, nil
+	}
+
+	if opts.SourceSelector != "" || opts.SnapshotKey != "" {
+		res, err := resolveExistingCatalog(ctx, opts.SourceSelector, opts.SnapshotKey)
+		if err != nil {
+			if opts.Strict {
+				return planCatalogResolution{}, err
+			}
+			return planCatalogResolution{}, nil
+		}
+		return res, nil
 	}
 
 	res, err := resolveAndPersistPlanCatalog(ctx, opts.Strict)
 	if err != nil {
 		if opts.Strict {
-			// Hard fail under --catalog-strict.
 			return planCatalogResolution{}, err
 		}
-		// Best-effort: degrade to Phase 1 layout silently. The plan is
-		// still valid; only the catalog parent mirror is absent.
 		return planCatalogResolution{}, nil
 	}
 	return res, nil
+}
+
+// resolveExistingCatalog resolves a (source, catalog) pair from
+// already-persisted snapshots (--catalog-source / --catalog-snapshot).
+// No refresh is performed; the snapshots must already exist in the state store.
+func resolveExistingCatalog(ctx context.Context, sourceSelector, snapshotKey string) (planCatalogResolution, error) {
+	stateStore, _, err := openLocalStateStore()
+	if err != nil {
+		return planCatalogResolution{}, fmt.Errorf("open state store: %w", err)
+	}
+	store := catalogstore.New(stateStore)
+
+	sel, err := catalogstore.ParseRefSelector(sourceSelector, snapshotKey)
+	if err != nil {
+		return planCatalogResolution{}, fmt.Errorf("parse catalog selector: %w", err)
+	}
+
+	cat, err := store.ResolveCatalog(ctx, sel)
+	if err != nil {
+		return planCatalogResolution{}, fmt.Errorf("resolve catalog: %w", err)
+	}
+
+	src, err := store.ResolveSource(ctx, catalogstore.RefSelector{Kind: "current"})
+	if err != nil {
+		src = catalogmodel.SourceSnapshot{SourceSnapshotKey: cat.SourceSnapshotKey}
+	}
+
+	parent := revision.CatalogParentRef{
+		SourceKey:  cat.SourceSnapshotKey,
+		CatalogKey: cat.CatalogSnapshotKey,
+	}
+
+	return planCatalogResolution{
+		Resolved: true,
+		Parent:   parent,
+		Source:   &src,
+		Catalog:  &cat,
+	}, nil
 }
 
 // resolveAndPersistPlanCatalog runs the refresh pipeline and persists the

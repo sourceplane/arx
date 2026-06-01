@@ -242,17 +242,19 @@ func WriteRevision(
 
 	// Step 2 — revision.json.
 	rev := PlanRevision{
-		APIVersion:    APIVersion,
-		Kind:          KindName,
-		RevisionID:    cfg.NewID(),
-		RevisionKey:   revKey,
-		TriggerID:     trig.TriggerID,
-		TriggerKey:    trig.TriggerKey,
-		PlanHash:      planHash,
-		PlanShortHash: short,
-		Source:        trig.Source,
-		Summary:       summaryFromScope(trig, cfg.JobCount),
-		CreatedAt:     now,
+		APIVersion:         APIVersion,
+		Kind:               KindName,
+		RevisionID:         cfg.NewID(),
+		RevisionKey:        revKey,
+		TriggerID:          trig.TriggerID,
+		TriggerKey:         trig.TriggerKey,
+		PlanHash:           planHash,
+		PlanShortHash:      short,
+		Source:             trig.Source,
+		Summary:            summaryFromScope(trig, cfg.JobCount),
+		SourceSnapshotKey:  cfg.CatalogParent.SourceKey,
+		CatalogSnapshotKey: cfg.CatalogParent.CatalogKey,
+		CreatedAt:          now,
 	}
 	if _, err := store.Write(ctx, statestore.RevisionDocPath(revKey),
 		marshalCanonicalJSON(rev), statestore.WriteOptions{}); err != nil {

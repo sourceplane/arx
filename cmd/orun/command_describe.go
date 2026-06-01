@@ -381,6 +381,13 @@ func describeRevision(ref string) error {
 		fmt.Fprintf(os.Stdout, "Named Ref:    %s\n", revRef.NamedRefName)
 	}
 
+	if rev.SourceSnapshotKey != "" {
+		fmt.Fprintf(os.Stdout, "Source Snapshot: %s\n", rev.SourceSnapshotKey)
+	}
+	if rev.CatalogSnapshotKey != "" {
+		fmt.Fprintf(os.Stdout, "Catalog Snapshot: %s\n", rev.CatalogSnapshotKey)
+	}
+
 	// Latest execution under this revision (manifest summary).
 	manifestPath := statestore.ManifestPath(revKey)
 	if raw, _, mErr := store.Read(context.Background(), manifestPath); mErr == nil {

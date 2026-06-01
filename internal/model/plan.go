@@ -20,6 +20,8 @@ type PlanMetadata struct {
 	Scope       *PlanScope        `json:"scope,omitempty" yaml:"scope,omitempty"`
 	Trigger     *PlanTrigger      `json:"trigger,omitempty" yaml:"trigger,omitempty"`
 	Revision    *PlanRevisionMeta `json:"revision,omitempty" yaml:"revision,omitempty"`
+	Source      *PlanSourceMeta   `json:"source,omitempty" yaml:"source,omitempty"`
+	Catalog     *PlanCatalogMeta  `json:"catalog,omitempty" yaml:"catalog,omitempty"`
 	// WorkDir is the intent directory path relative to the workspace root
 	// (the directory where orun plan was invoked). orun run uses this when
 	// intent auto-discovery fails (e.g. in GHA where the intent lives in a
@@ -51,6 +53,28 @@ type PlanTrigger struct {
 type PlanRevisionMeta struct {
 	Key      string `json:"key" yaml:"key"`
 	PlanHash string `json:"planHash" yaml:"planHash"`
+}
+
+// PlanSourceMeta records the workspace VCS state the plan was generated from.
+// Populated from the SourceSnapshot resolved during catalog integration (C6).
+type PlanSourceMeta struct {
+	SnapshotKey  string `json:"snapshotKey" yaml:"snapshotKey"`
+	Ref          string `json:"ref,omitempty" yaml:"ref,omitempty"`
+	HeadRevision string `json:"headRevision,omitempty" yaml:"headRevision,omitempty"`
+	TreeHash     string `json:"treeHash,omitempty" yaml:"treeHash,omitempty"`
+	WorkingTree  string `json:"workingTree,omitempty" yaml:"workingTree,omitempty"`
+	DirtyHash    string `json:"dirtyHash,omitempty" yaml:"dirtyHash,omitempty"`
+}
+
+// PlanCatalogMeta records which catalog snapshot the plan was compiled against.
+// Populated from the CatalogSnapshot resolved during catalog integration (C6).
+// When Skipped is true, the catalog was deliberately bypassed
+// (--no-catalog-refresh) and other fields are empty.
+type PlanCatalogMeta struct {
+	SnapshotKey      string `json:"snapshotKey,omitempty" yaml:"snapshotKey,omitempty"`
+	CatalogHash      string `json:"catalogHash,omitempty" yaml:"catalogHash,omitempty"`
+	SourceSnapshotKey string `json:"sourceSnapshotKey,omitempty" yaml:"sourceSnapshotKey,omitempty"`
+	Skipped          bool   `json:"skipped" yaml:"skipped"`
 }
 
 // PlanScope records the component scoping applied when the plan was generated.
