@@ -8,6 +8,7 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
+	"github.com/sourceplane/orun/internal/catalogstore"
 	"github.com/sourceplane/orun/internal/statestore"
 	"github.com/sourceplane/orun/internal/triggerctx"
 )
@@ -284,12 +285,21 @@ func WriteRevision(
 	// store.Write here because CreateIfAbsent would surface ErrExists
 	// against our own reservation.
 	entry := statestore.RevisionIndexEntry{
-		RevisionKey: revKey,
-		RevisionID:  rev.RevisionID,
-		TriggerKey:  trig.TriggerKey,
-		PlanHash:    planHash,
-		CreatedAt:   now,
-		Path:        statestore.RevisionDir(revKey),
+		RevisionKey:        revKey,
+		RevisionID:         rev.RevisionID,
+		TriggerKey:         trig.TriggerKey,
+		PlanHash:           planHash,
+		SourceSnapshotKey:  rev.SourceSnapshotKey,
+		CatalogSnapshotKey: rev.CatalogSnapshotKey,
+		CreatedAt:          now,
+		Path:               statestore.RevisionDir(revKey),
+	}
+	if cfg.CatalogParent.Active() {
+		p, err := catalogstore.CatalogRevisionDir(cfg.CatalogParent.SourceKey, cfg.CatalogParent.CatalogKey, revKey)
+		if err != nil {
+			return PlanRevision{}, fmt.Errorf("catalog-parent revision index path: %w", err)
+		}
+		entry.Path = p
 	}
 	if _, err := store.Write(ctx, statestore.RevisionIndexPath(revKey),
 		marshalCanonicalJSON(entry), statestore.WriteOptions{}); err != nil {
@@ -336,10 +346,12 @@ func updateLatestRevisionRef(
 	now time.Time,
 ) error {
 	next := statestore.LatestRevisionRef{
-		RevisionKey: rev.RevisionKey,
-		RevisionID:  rev.RevisionID,
-		PlanHash:    rev.PlanHash,
-		CreatedAt:   now,
+		RevisionKey:        rev.RevisionKey,
+		RevisionID:         rev.RevisionID,
+		PlanHash:           rev.PlanHash,
+		SourceSnapshotKey:  rev.SourceSnapshotKey,
+		CatalogSnapshotKey: rev.CatalogSnapshotKey,
+		CreatedAt:          now,
 	}
 	for attempt := 0; attempt < casRetryBudget; attempt++ {
 		_, prev, err := statestore.ReadLatestRevisionRef(ctx, store)

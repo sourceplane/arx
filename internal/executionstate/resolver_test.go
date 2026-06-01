@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sourceplane/orun/internal/catalogstore"
 	"github.com/sourceplane/orun/internal/revision"
 	"github.com/sourceplane/orun/internal/statestore"
 	"github.com/sourceplane/orun/internal/testfx/statefs"
@@ -171,6 +172,88 @@ func TestResolveExecution_RevHintUsesExecutionIndexPath(t *testing.T) {
 	}
 }
 
+func TestResolveExecution_CatalogTreeFallbackWithoutGlobalIndex(t *testing.T) {
+	cfg, revKey, occ := newWriterFixture(t)
+	parent := revision.CatalogParentRef{
+		SourceKey:  "src-branch-main-abcdef0",
+		CatalogKey: "cat-abcdef",
+	}
+	cfg.CatalogParent = parent
+	rec, err := CreateExecution(context.Background(), cfg, validInput(revKey, occ.TriggerKey, occ.TriggerID))
+	if err != nil {
+		t.Fatalf("CreateExecution: %v", err)
+	}
+	if err := cfg.Store.Delete(context.Background(), statestore.ExecutionDocPath(revKey, rec.ExecutionKey)); err != nil {
+		t.Fatalf("delete global execution: %v", err)
+	}
+	if err := cfg.Store.Delete(context.Background(), statestore.ExecutionIndexPath(rec.ExecutionKey)); err != nil {
+		t.Fatalf("delete execution index: %v", err)
+	}
+
+	ref, err := ResolveExecution(context.Background(), cfg.Store, rec.ExecutionKey, "", ResolveOptions{})
+	if err != nil {
+		t.Fatalf("ResolveExecution catalog fallback: %v", err)
+	}
+	if ref.Source != ResolveSourceCatalogFallback {
+		t.Fatalf("Source=%q want %q", ref.Source, ResolveSourceCatalogFallback)
+	}
+	if ref.RevisionKey != revKey || ref.Execution.ExecutionKey != rec.ExecutionKey {
+		t.Fatalf("resolved ref mismatch: %+v", ref)
+	}
+	if ref.Execution.SourceSnapshotKey != parent.SourceKey || ref.Execution.CatalogSnapshotKey != parent.CatalogKey {
+		t.Fatalf("resolved execution parent keys = %q/%q", ref.Execution.SourceSnapshotKey, ref.Execution.CatalogSnapshotKey)
+	}
+
+	latest, err := ResolveExecution(context.Background(), cfg.Store, "", "", ResolveOptions{})
+	if err != nil {
+		t.Fatalf("ResolveExecution latest via catalog fallback: %v", err)
+	}
+	if latest.Execution.ExecutionKey != rec.ExecutionKey {
+		t.Fatalf("latest execution key = %q; want %q", latest.Execution.ExecutionKey, rec.ExecutionKey)
+	}
+}
+
+func TestResolveCatalogExecutionErrors(t *testing.T) {
+	t.Run("validation and not found", func(t *testing.T) {
+		cfg, _, _ := newWriterFixture(t)
+		ctx := context.Background()
+		if _, err := resolveCatalogByRevAndKey(ctx, cfg.Store, "not-a-revision", "run-001"); err == nil {
+			t.Fatal("resolveCatalogByRevAndKey unexpectedly accepted invalid revision")
+		}
+		if _, err := resolveCatalogByRevAndKey(ctx, cfg.Store, "rev-main-abcdef0-pfeedface", "../bad"); err == nil {
+			t.Fatal("resolveCatalogByRevAndKey unexpectedly accepted invalid execution")
+		}
+		if _, err := resolveCatalogByExecKey(ctx, cfg.Store, "../bad"); err == nil {
+			t.Fatal("resolveCatalogByExecKey unexpectedly accepted invalid execution")
+		}
+		if _, err := resolveCatalogExecution(ctx, cfg.Store, "run-missing", ""); !errors.Is(err, statestore.ErrNotFound) {
+			t.Fatalf("err=%v; want ErrNotFound", err)
+		}
+	})
+
+	t.Run("conflict", func(t *testing.T) {
+		cfg, revKey, occ := newWriterFixture(t)
+		parent := revision.CatalogParentRef{
+			SourceKey:  "src-branch-main-abcdef0",
+			CatalogKey: "cat-abcdef",
+		}
+		cfg.CatalogParent = parent
+		rec, err := CreateExecution(context.Background(), cfg, validInput(revKey, occ.TriggerKey, occ.TriggerID))
+		if err != nil {
+			t.Fatalf("CreateExecution: %v", err)
+		}
+		duplicateCatalogExecution(t, cfg.Store, parent, revision.CatalogParentRef{
+			SourceKey:  parent.SourceKey,
+			CatalogKey: "cat-deadbee",
+		}, revKey, rec.ExecutionKey)
+
+		_, err = resolveCatalogExecution(context.Background(), cfg.Store, rec.ExecutionKey, "")
+		if !errors.Is(err, statestore.ErrConflict) {
+			t.Fatalf("err=%v; want ErrConflict", err)
+		}
+	})
+}
+
 func TestResolveExecution_Branch2_RevHintMiss_FallsThrough(t *testing.T) {
 	cfg, _, rec, _ := resolverFixture(t)
 	// Use a revHint that doesn't exist; resolver should fall through and find via exact-key.
@@ -180,6 +263,25 @@ func TestResolveExecution_Branch2_RevHintMiss_FallsThrough(t *testing.T) {
 	}
 	if ref.Source != ResolveSourceExactKey {
 		t.Fatalf("Source=%q want exact-key", ref.Source)
+	}
+}
+
+func duplicateCatalogExecution(t *testing.T, store statestore.StateStore, from, to revision.CatalogParentRef, revKey, execKey string) {
+	t.Helper()
+	fromPath, err := catalogstore.CatalogExecutionDocPath(from.SourceKey, from.CatalogKey, revKey, execKey)
+	if err != nil {
+		t.Fatalf("source catalog execution path: %v", err)
+	}
+	toPath, err := catalogstore.CatalogExecutionDocPath(to.SourceKey, to.CatalogKey, revKey, execKey)
+	if err != nil {
+		t.Fatalf("dest catalog execution path: %v", err)
+	}
+	raw, _, err := store.Read(context.Background(), fromPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", fromPath, err)
+	}
+	if _, err := store.Write(context.Background(), toPath, raw, statestore.WriteOptions{}); err != nil {
+		t.Fatalf("write %s: %v", toPath, err)
 	}
 }
 

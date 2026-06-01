@@ -32,19 +32,23 @@ import (
 
 // LatestRevisionRef encodes refs/latest-revision.json (data-model.md §6.1).
 type LatestRevisionRef struct {
-	RevisionKey string    `json:"revisionKey"`
-	RevisionID  string    `json:"revisionId"`
-	PlanHash    string    `json:"planHash"`
-	CreatedAt   time.Time `json:"createdAt"`
+	RevisionKey        string    `json:"revisionKey"`
+	RevisionID         string    `json:"revisionId"`
+	PlanHash           string    `json:"planHash"`
+	SourceSnapshotKey  string    `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string    `json:"catalogSnapshotKey,omitempty"`
+	CreatedAt          time.Time `json:"createdAt"`
 }
 
 // LatestExecutionRef encodes refs/latest-execution.json (data-model.md §6.2).
 type LatestExecutionRef struct {
-	RevisionKey  string    `json:"revisionKey"`
-	ExecutionKey string    `json:"executionKey"`
-	ExecutionID  string    `json:"executionId"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"createdAt"`
+	RevisionKey        string    `json:"revisionKey"`
+	ExecutionKey       string    `json:"executionKey"`
+	ExecutionID        string    `json:"executionId"`
+	SourceSnapshotKey  string    `json:"sourceSnapshotKey,omitempty"`
+	CatalogSnapshotKey string    `json:"catalogSnapshotKey,omitempty"`
+	Status             string    `json:"status"`
+	CreatedAt          time.Time `json:"createdAt"`
 }
 
 // TriggerRef encodes refs/triggers/<name>/latest.json and

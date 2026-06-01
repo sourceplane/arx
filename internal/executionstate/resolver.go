@@ -46,6 +46,11 @@ const (
 	// scan (branch 5). The execution row is synthesized in-memory from
 	// the legacy file content per compat §4 — read-only, no writes.
 	ResolveSourceLegacyFallback ResolveSource = "legacy-fallback"
+
+	// ResolveSourceCatalogFallback covers catalog-owned execution files
+	// found by walking sources/*/catalogs/*/revisions/*/executions/* after
+	// the global execution index misses.
+	ResolveSourceCatalogFallback ResolveSource = "catalog-fallback"
 )
 
 // ExecutionRef is the result of a successful ResolveExecution call. It
@@ -161,6 +166,11 @@ func ResolveExecution(
 		if !errors.Is(err, statestore.ErrNotFound) {
 			return ExecutionRef{}, err
 		}
+		if ref, err := resolveCatalogByExecKey(ctx, store, arg); err == nil {
+			return ref, nil
+		} else if !errors.Is(err, statestore.ErrNotFound) {
+			return ExecutionRef{}, err
+		}
 	}
 
 	// Branch 4 — prefix scan against indexes/executions/.
@@ -233,6 +243,11 @@ func resolveByRevAndKey(ctx context.Context, store statestore.StateStore, revKey
 			return ExecutionRef{}, rerr
 		}
 	}
+	if ref, rerr := resolveCatalogByRevAndKey(ctx, store, revKey, execKey); rerr == nil {
+		return ref, nil
+	} else if !errors.Is(rerr, statestore.ErrNotFound) {
+		return ExecutionRef{}, rerr
+	}
 	return ExecutionRef{}, err
 }
 
@@ -281,6 +296,68 @@ func resolveByIndexEntry(ctx context.Context, store statestore.StateStore, entry
 		return ExecutionRef{}, err
 	}
 	return decodeExecutionRef(raw, ResolveSourceExactKey, entry.RevisionKey)
+}
+
+func resolveCatalogByRevAndKey(ctx context.Context, store statestore.StateStore, revKey, execKey string) (ExecutionRef, error) {
+	if err := revision.ValidateRevisionKey(revKey); err != nil {
+		return ExecutionRef{}, err
+	}
+	if err := statestore.ValidateComponent(execKey); err != nil {
+		return ExecutionRef{}, err
+	}
+	return resolveCatalogExecution(ctx, store, execKey, revKey)
+}
+
+func resolveCatalogByExecKey(ctx context.Context, store statestore.StateStore, execKey string) (ExecutionRef, error) {
+	if err := statestore.ValidateComponent(execKey); err != nil {
+		return ExecutionRef{}, err
+	}
+	return resolveCatalogExecution(ctx, store, execKey, "")
+}
+
+func resolveCatalogExecution(ctx context.Context, store statestore.StateStore, execKey, revHint string) (ExecutionRef, error) {
+	infos, err := store.List(ctx, "sources")
+	if err != nil {
+		return ExecutionRef{}, fmt.Errorf("list catalog executions: %w", err)
+	}
+	type match struct {
+		dir string
+		rev string
+	}
+	var matches []match
+	for _, info := range infos {
+		parts := strings.Split(strings.Trim(info.Path, "/"), "/")
+		if len(parts) != 9 {
+			continue
+		}
+		if parts[0] != "sources" || parts[2] != "catalogs" || parts[4] != "revisions" ||
+			parts[6] != "executions" || parts[7] != execKey || parts[8] != "execution.json" {
+			continue
+		}
+		revKey := parts[5]
+		if revHint != "" && revKey != revHint {
+			continue
+		}
+		matches = append(matches, match{dir: path.Join(parts[:8]...), rev: revKey})
+	}
+	switch len(matches) {
+	case 0:
+		return ExecutionRef{}, fmt.Errorf("%w: catalog execution %q not found", statestore.ErrNotFound, execKey)
+	case 1:
+		raw, _, err := store.Read(ctx, path.Join(matches[0].dir, "execution.json"))
+		if err != nil {
+			return ExecutionRef{}, err
+		}
+		return decodeExecutionRef(raw, ResolveSourceCatalogFallback, matches[0].rev)
+	default:
+		dirs := make([]string, 0, len(matches))
+		for _, m := range matches {
+			dirs = append(dirs, m.dir)
+		}
+		sort.Strings(dirs)
+		return ExecutionRef{}, fmt.Errorf("%w: execution %q appears in multiple catalog parents: %v",
+			statestore.ErrConflict, execKey, dirs)
+	}
 }
 
 // resolvePrefixScan implements branch 4 — list every executions index
