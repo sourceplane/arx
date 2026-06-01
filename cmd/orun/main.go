@@ -431,9 +431,22 @@ func generatePlan() error {
 	if err != nil {
 		return fmt.Errorf("open state store: %w", err)
 	}
+
+	// Resolve the current workspace into a (source, catalog) snapshot and
+	// persist it, so the revision can be mirrored under the catalog parent
+	// (design.md §7 / C6). Best-effort in PR1: a resolution failure degrades
+	// to the Phase 1 global layout. The plan flags (--no-catalog-refresh /
+	// --catalog-source / --catalog-snapshot / --catalog-strict) are wired in
+	// PR2; PR1 always attempts a best-effort refresh.
+	catRes, err := resolvePlanCatalog(context.Background(), planCatalogOptions{})
+	if err != nil {
+		return fmt.Errorf("resolve plan catalog: %w", err)
+	}
+
 	revCfg := revision.Config{
-		Store:    stateStore,
-		JobCount: len(plan.Jobs),
+		Store:         stateStore,
+		JobCount:      len(plan.Jobs),
+		CatalogParent: catRes.Parent,
 	}.WithCompatibilityWrites(true)
 
 	rev, err := revision.WriteRevision(context.Background(), revCfg, trig, planBytes, planHash)
